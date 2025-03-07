@@ -19,7 +19,7 @@ export interface Trade {
   exit_date: string | null
   entry_price: number | null
   exit_price: number | null
-  position_size: number | null
+  quantity: number
   strategy: string
   notes: string
   fees: number

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { db } from '../services/supabase'
-import type { Trade } from '../services/supabase'
+import type { Trade, UserSettings } from '../services/supabase'
 
 interface FilterState {
   dateRange: string
@@ -18,6 +18,7 @@ function TradeHistory() {
   const [error, setError] = useState<string | null>(null)
   const [assets, setAssets] = useState<string[]>([])
   const [strategies, setStrategies] = useState<string[]>([])
+  const [userSettings, setUserSettings] = useState<UserSettings | null>(null)
   const [filters, setFilters] = useState<FilterState>({
     dateRange: 'all',
     asset: 'all',
@@ -28,6 +29,7 @@ function TradeHistory() {
 
   useEffect(() => {
     loadTrades()
+    loadUserSettings()
   }, [])
 
   useEffect(() => {
@@ -53,11 +55,28 @@ function TradeHistory() {
     }
   }
 
+  const loadUserSettings = async () => {
+    try {
+      const { data: { user } } = await db.supabase.auth.getUser()
+      if (user) {
+        const settings = await db.getUserSettings(user.id)
+        setUserSettings(settings)
+      }
+    } catch (err) {
+      console.error('Error loading user settings:', err)
+    }
+  }
+
   const calculateProfitLoss = (trade: Trade): number => {
-    if (!trade.exit_price || !trade.entry_price || !trade.position_size) return 0
+    if (!trade.exit_price || !trade.entry_price) return 0
     return trade.type === 'long'
-      ? (trade.exit_price - trade.entry_price) * trade.position_size
-      : (trade.entry_price - trade.exit_price) * trade.position_size
+      ? (trade.exit_price - trade.entry_price) * trade.quantity
+      : (trade.entry_price - trade.exit_price) * trade.quantity
+  }
+
+  const calculatePositionSize = (trade: Trade): number => {
+    if (!trade.entry_price || !userSettings?.total_capital) return 0
+    return (trade.entry_price * trade.quantity) / userSettings.total_capital * 100
   }
 
   const applyFilters = () => {
@@ -245,6 +264,9 @@ function TradeHistory() {
                 Exit Price
               </th>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Position Size
+              </th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 P/L
               </th>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -258,6 +280,7 @@ function TradeHistory() {
           <tbody className="bg-white divide-y divide-gray-200">
             {filteredTrades.map((trade) => {
               const profitLoss = calculateProfitLoss(trade)
+              const positionSize = calculatePositionSize(trade)
               return (
                 <tr key={trade.id}>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -278,6 +301,9 @@ function TradeHistory() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     ${trade.exit_price?.toFixed(2) || '-'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {positionSize.toFixed(2)}%
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
                     <span className={`${profitLoss > 0 ? 'text-green-600' : profitLoss < 0 ? 'text-red-600' : 'text-gray-500'}`}>

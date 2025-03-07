@@ -57,10 +57,10 @@ function Dashboard() {
   }
 
   const calculateProfitLoss = (trade: Trade): number => {
-    if (!trade.exit_price || !trade.entry_price || !trade.position_size) return 0
+    if (!trade.exit_price || !trade.entry_price) return 0
     return trade.type === 'long'
-      ? (trade.exit_price - trade.entry_price) * trade.position_size
-      : (trade.entry_price - trade.exit_price) * trade.position_size
+      ? (trade.exit_price - trade.entry_price) * trade.quantity
+      : (trade.entry_price - trade.exit_price) * trade.quantity
   }
 
   const calculateTotalProfitLoss = (trades: Trade[]): number => {

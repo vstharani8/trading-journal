@@ -10,7 +10,7 @@ type TradeFormData = {
   exit_date: string | null
   entry_price: number | null
   exit_price: number | null
-  position_size: number | null
+  quantity: number
   strategy: string
   notes: string
   fees: number
@@ -33,7 +33,7 @@ const initialFormData: TradeFormData = {
   exit_date: null,
   entry_price: null,
   exit_price: null,
-  position_size: null,
+  quantity: 0,
   strategy: '',
   notes: '',
   fees: 0,
@@ -55,7 +55,6 @@ function TradeForm() {
     totalCapital: 0,
     riskPerTrade: 1
   })
-  const [quantity, setQuantity] = useState<number>(0)
 
   useEffect(() => {
     if (user?.id) {
@@ -89,16 +88,12 @@ function TradeForm() {
       setLoading(true)
       const trade = await db.getTrade(id!)
       if (trade) {
-        const { id: _, created_at: __, updated_at: ___, ...tradeData } = trade
+        const { id: _, created_at: __, updated_at: ___, position_size, ...tradeData } = trade
         setFormData({
           ...tradeData,
           entry_price: tradeData.entry_price || null,
-          position_size: tradeData.position_size || null
+          quantity: position_size || 0
         })
-        // Calculate quantity from position size and entry price
-        if (trade.entry_price && trade.position_size) {
-          setQuantity(trade.position_size / trade.entry_price)
-        }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load trade')
@@ -128,7 +123,7 @@ function TradeForm() {
       const submitData = {
         ...formData,
         entry_price: formData.entry_price || 0,
-        position_size: formData.position_size || 0
+        position_size: formData.quantity
       }
       
       if (id) {
@@ -148,7 +143,7 @@ function TradeForm() {
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
     const { name, value } = e.target
-    const numValue = name === 'position_size' || name === 'entry_price' || name === 'exit_price' || name === 'fees' || name === 'stop_loss' || name === 'take_profit'
+    const numValue = name === 'quantity' || name === 'entry_price' || name === 'exit_price' || name === 'fees' || name === 'stop_loss' || name === 'take_profit'
       ? value === '' ? null : Number(value)
       : value
 
@@ -157,31 +152,16 @@ function TradeForm() {
     // Update quantity when entry price changes
     if (name === 'entry_price') {
       const entryPrice = Number(value)
-      if (entryPrice > 0 && formData.position_size) {
-        const newQuantity = formData.position_size / entryPrice
-        setQuantity(newQuantity)
+      if (entryPrice > 0 && formData.quantity) {
+        const newQuantity = formData.quantity / entryPrice
+        setFormData(prev => ({ ...prev, quantity: newQuantity }))
       }
     }
 
     // Update position size when stop loss changes
     if (name === 'stop_loss' && formData.entry_price) {
       const maxQty = calculateMaxQuantity()
-      setQuantity(maxQty)
-      const newPositionSize = calculatePositionSize(formData.entry_price, maxQty)
-      setFormData(prev => ({
-        ...prev,
-        position_size: newPositionSize
-      }))
-    }
-  }
-
-  const handleQuantityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newQuantity = Number(e.target.value)
-    setQuantity(newQuantity)
-    
-    if (formData.entry_price !== null) {
-      const newPositionSize = calculatePositionSize(formData.entry_price, newQuantity)
-      setFormData(prev => ({ ...prev, position_size: newPositionSize }))
+      setFormData(prev => ({ ...prev, quantity: maxQty }))
     }
   }
 
@@ -272,31 +252,41 @@ function TradeForm() {
             <label htmlFor="entry_price" className="block text-sm font-medium text-gray-700">
               Entry Price
             </label>
-            <input
-              type="number"
-              name="entry_price"
-              id="entry_price"
-              required
-              step="0.01"
-              value={formData.entry_price || ''}
-              onChange={handleChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
-            />
+            <div className="mt-1 relative rounded-md shadow-sm">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <span className="text-gray-500 sm:text-sm">$</span>
+              </div>
+              <input
+                type="number"
+                name="entry_price"
+                id="entry_price"
+                required
+                step="0.01"
+                value={formData.entry_price || ''}
+                onChange={handleChange}
+                className="pl-7 mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+              />
+            </div>
           </div>
 
           <div>
             <label htmlFor="exit_price" className="block text-sm font-medium text-gray-700">
               Exit Price
             </label>
-            <input
-              type="number"
-              name="exit_price"
-              id="exit_price"
-              step="0.01"
-              value={formData.exit_price || ''}
-              onChange={handleChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
-            />
+            <div className="mt-1 relative rounded-md shadow-sm">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <span className="text-gray-500 sm:text-sm">$</span>
+              </div>
+              <input
+                type="number"
+                name="exit_price"
+                id="exit_price"
+                step="0.01"
+                value={formData.exit_price || ''}
+                onChange={handleChange}
+                className="pl-7 mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+              />
+            </div>
           </div>
 
           <div>
@@ -310,31 +300,10 @@ function TradeForm() {
               required
               min="0.00000001"
               step="0.00000001"
-              value={quantity || ''}
-              onChange={handleQuantityChange}
+              value={formData.quantity || ''}
+              onChange={handleChange}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
             />
-          </div>
-
-          <div>
-            <label htmlFor="position_size" className="block text-sm font-medium text-gray-700">
-              Position Size
-            </label>
-            <div className="mt-1 relative rounded-md shadow-sm">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <span className="text-gray-500 sm:text-sm">$</span>
-              </div>
-              <input
-                type="number"
-                name="position_size"
-                id="position_size"
-                required
-                step="0.01"
-                value={formData.position_size || ''}
-                readOnly
-                className="pl-7 mt-1 block w-full rounded-md border-gray-300 bg-gray-50 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
-              />
-            </div>
           </div>
 
           <div>
