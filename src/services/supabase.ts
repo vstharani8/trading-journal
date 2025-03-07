@@ -12,23 +12,23 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 // Database types
 export interface Trade {
   id: string
+  user_id: string
   symbol: string
+  type: 'long' | 'short'
   entry_date: string
   exit_date: string | null
-  entry_price: number
+  entry_price: number | null
   exit_price: number | null
-  position_size: number
-  type: 'long' | 'short'
+  position_size: number | null
+  strategy: string
+  notes: string
+  fees: number
   stop_loss: number | null
   take_profit: number | null
-  fees: number | null
-  strategy: string | null
-  notes: string
   screenshot: string | null
   status: 'open' | 'closed'
   created_at: string
   updated_at: string
-  user_id: string
 }
 
 export interface Strategy {
@@ -38,8 +38,19 @@ export interface Strategy {
   created_at: string
 }
 
+export interface UserSettings {
+  id: string
+  user_id: string
+  total_capital: number
+  risk_per_trade: number
+  created_at: string
+  updated_at: string
+}
+
 // Database operations
 export const db = {
+  supabase,
+  
   // Trade operations
   async getAllTrades(): Promise<Trade[]> {
     const { data, error } = await supabase
@@ -62,24 +73,27 @@ export const db = {
     return data
   },
 
-  async addTrade(trade: Omit<Trade, 'id' | 'created_at' | 'updated_at'>): Promise<string> {
+  async addTrade(trade: Omit<Trade, 'id' | 'created_at' | 'updated_at'>): Promise<Trade> {
     const { data, error } = await supabase
       .from('trades')
-      .insert([trade])
-      .select('id')
+      .insert([{ ...trade, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }])
+      .select()
       .single()
 
     if (error) throw error
-    return data.id
+    return data
   },
 
-  async updateTrade(trade: Trade): Promise<void> {
-    const { error } = await supabase
+  async updateTrade(trade: Trade): Promise<Trade> {
+    const { data, error } = await supabase
       .from('trades')
-      .update(trade)
+      .update({ ...trade, updated_at: new Date().toISOString() })
       .eq('id', trade.id)
+      .select()
+      .single()
 
     if (error) throw error
+    return data
   },
 
   async deleteTrade(id: string): Promise<void> {
@@ -94,67 +108,68 @@ export const db = {
   // Strategy operations
   async getStrategies(): Promise<string[]> {
     const { data, error } = await supabase
-      .from('strategies')
-      .select('name')
-      .order('name')
+      .from('trades')
+      .select('strategy')
+      .not('strategy', 'is', null)
 
     if (error) throw error
-    return data.map(s => s.name)
+    return [...new Set(data?.map(t => t.strategy) || [])]
   },
 
   async setStrategies(strategies: string[]): Promise<void> {
-    // First, delete all existing strategies
-    const { error: deleteError } = await supabase
-      .from('strategies')
-      .delete()
-      .neq('id', '0')
+    // This is a placeholder since strategies are now derived from trades
+    return
+  },
 
-    if (deleteError) throw deleteError
+  // User settings operations
+  async getUserSettings(userId: string): Promise<UserSettings | null> {
+    const { data, error } = await supabase
+      .from('user_settings')
+      .select('*')
+      .eq('user_id', userId)
+      .single()
 
-    // Then insert the new strategies
-    if (strategies.length > 0) {
-      const { error: insertError } = await supabase
-        .from('strategies')
-        .insert(strategies.map(name => ({ name })))
+    if (error && error.code !== 'PGRST116') throw error // PGRST116 is "no rows returned"
+    return data
+  },
 
-      if (insertError) throw insertError
-    }
+  async updateUserSettings(settings: Partial<UserSettings> & { user_id: string }): Promise<UserSettings> {
+    const { data, error } = await supabase
+      .from('user_settings')
+      .upsert({
+        ...settings,
+        updated_at: new Date().toISOString()
+      })
+      .select()
+      .single()
+
+    if (error) throw error
+    return data
   },
 
   // Export/Import operations
   async exportData(): Promise<string> {
-    const [trades, strategies] = await Promise.all([
-      this.getAllTrades(),
-      this.getStrategies()
-    ])
+    const { data: trades, error: tradesError } = await supabase
+      .from('trades')
+      .select('*')
+      .order('entry_date', { ascending: true })
 
-    return JSON.stringify({ trades, strategies }, null, 2)
+    if (tradesError) throw tradesError
+
+    return JSON.stringify({ trades }, null, 2)
   },
 
   async importData(jsonData: string): Promise<void> {
     const data = JSON.parse(jsonData)
     
-    // Clear existing data
-    await Promise.all([
-      supabase.from('trades').delete().neq('id', '0'),
-      supabase.from('strategies').delete().neq('id', '0')
-    ])
-    
-    // Import new data
-    if (data.trades?.length > 0) {
-      const { error: tradesError } = await supabase
-        .from('trades')
-        .insert(data.trades)
-
-      if (tradesError) throw tradesError
+    if (!data.trades || !Array.isArray(data.trades)) {
+      throw new Error('Invalid import data format')
     }
 
-    if (data.strategies?.length > 0) {
-      const { error: strategiesError } = await supabase
-        .from('strategies')
-        .insert(data.strategies.map((name: string) => ({ name })))
+    const { error } = await supabase
+      .from('trades')
+      .insert(data.trades)
 
-      if (strategiesError) throw strategiesError
-    }
+    if (error) throw error
   }
 } 

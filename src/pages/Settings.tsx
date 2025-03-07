@@ -1,20 +1,46 @@
 import { useState, useEffect } from 'react'
 import { db } from '../services/supabase'
+import { useAuth } from '../contexts/AuthContext'
+
+interface UserSettings {
+  totalCapital: number
+  riskPerTrade: number
+}
 
 function Settings() {
+  const { user } = useAuth()
   const [strategies, setStrategies] = useState<string[]>([])
   const [newStrategy, setNewStrategy] = useState('')
   const [isLoading, setIsLoading] = useState(true)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [settings, setSettings] = useState<UserSettings>({
+    totalCapital: 0,
+    riskPerTrade: 1
+  })
 
   useEffect(() => {
     const loadSettings = async () => {
       try {
         setIsLoading(true)
+        // Load strategies
         const savedStrategies = await db.getStrategies()
         setStrategies(savedStrategies || [])
+
+        // Load user settings
+        const { data: userSettings, error } = await db.supabase
+          .from('user_settings')
+          .select('*')
+          .eq('user_id', user?.id)
+          .single()
+
+        if (!error && userSettings) {
+          setSettings({
+            totalCapital: userSettings.total_capital || 0,
+            riskPerTrade: userSettings.risk_per_trade || 1
+          })
+        }
       } catch (error) {
         console.error('Error loading settings:', error)
       } finally {
@@ -22,7 +48,7 @@ function Settings() {
       }
     }
     loadSettings()
-  }, [])
+  }, [user])
 
   const handleAddStrategy = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -48,6 +74,30 @@ function Settings() {
     } catch (error) {
       console.error('Error deleting strategy:', error)
       alert('Failed to delete strategy. Please try again.')
+    }
+  }
+
+  const handleSaveSettings = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      setSuccess(null)
+
+      const { error } = await db.supabase
+        .from('user_settings')
+        .upsert({
+          user_id: user?.id,
+          total_capital: settings.totalCapital,
+          risk_per_trade: settings.riskPerTrade,
+          updated_at: new Date().toISOString()
+        })
+
+      if (error) throw error
+      setSuccess('Settings saved successfully')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save settings')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -128,8 +178,70 @@ function Settings() {
         </div>
       )}
 
+      {/* Capital Management */}
+      <div className="bg-white shadow rounded-lg p-6">
+        <h2 className="text-lg font-medium text-gray-900 mb-4">Capital Management</h2>
+        <div className="space-y-4">
+          <div>
+            <label htmlFor="totalCapital" className="block text-sm font-medium text-gray-700">
+              Total Available Capital
+            </label>
+            <div className="mt-1 relative rounded-md shadow-sm">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <span className="text-gray-500 sm:text-sm">$</span>
+              </div>
+              <input
+                type="number"
+                name="totalCapital"
+                id="totalCapital"
+                min="0"
+                step="0.01"
+                value={settings.totalCapital}
+                onChange={(e) => setSettings(prev => ({ ...prev, totalCapital: Number(e.target.value) }))}
+                className="focus:ring-primary-500 focus:border-primary-500 block w-full pl-7 pr-12 sm:text-sm border-gray-300 rounded-md"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label htmlFor="riskPerTrade" className="block text-sm font-medium text-gray-700">
+              Risk Per Trade (%)
+            </label>
+            <div className="mt-1 relative rounded-md shadow-sm">
+              <input
+                type="number"
+                name="riskPerTrade"
+                id="riskPerTrade"
+                min="0.1"
+                max="100"
+                step="0.1"
+                value={settings.riskPerTrade}
+                onChange={(e) => setSettings(prev => ({ ...prev, riskPerTrade: Number(e.target.value) }))}
+                className="focus:ring-primary-500 focus:border-primary-500 block w-full pr-12 sm:text-sm border-gray-300 rounded-md"
+              />
+              <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                <span className="text-gray-500 sm:text-sm">%</span>
+              </div>
+            </div>
+            <p className="mt-2 text-sm text-gray-500">
+              Maximum risk amount: ${((settings.totalCapital * settings.riskPerTrade) / 100).toFixed(2)}
+            </p>
+          </div>
+
+          <div className="pt-4">
+            <button
+              onClick={handleSaveSettings}
+              disabled={loading}
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50"
+            >
+              {loading ? 'Saving...' : 'Save Settings'}
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* Trading Strategies */}
-      <div className="card">
+      <div className="bg-white shadow rounded-lg p-6">
         <h2 className="text-lg font-medium text-gray-900 mb-4">Trading Strategies</h2>
         <form onSubmit={handleAddStrategy} className="flex gap-2 mb-4">
           <input
@@ -137,13 +249,13 @@ function Settings() {
             value={newStrategy}
             onChange={(e) => setNewStrategy(e.target.value)}
             placeholder="Enter new strategy"
-            className="input flex-1"
+            className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
             required
             minLength={1}
           />
           <button 
             type="submit" 
-            className="btn btn-primary"
+            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50"
             disabled={!newStrategy.trim()}
           >
             Add Strategy
@@ -172,7 +284,7 @@ function Settings() {
       </div>
 
       {/* Data Management */}
-      <div className="card">
+      <div className="bg-white shadow rounded-lg p-6">
         <h2 className="text-lg font-medium text-gray-900 mb-4">Data Management</h2>
         <div className="space-y-6">
           <div>
@@ -207,24 +319,6 @@ function Settings() {
                 className="hidden"
               />
             </div>
-          </div>
-
-          <div>
-            <h3 className="text-sm font-medium text-gray-700 mb-2">Clear All Data</h3>
-            <p className="text-sm text-gray-500 mb-2">
-              Warning: This will permanently delete all your trading data and settings.
-            </p>
-            <button
-              onClick={async () => {
-                if (window.confirm('Are you sure you want to clear all data? This action cannot be undone.')) {
-                  await db.importData('{"trades":[],"strategies":[]}')
-                  window.location.reload()
-                }
-              }}
-              className="btn btn-danger"
-            >
-              Clear All Data
-            </button>
           </div>
         </div>
       </div>
