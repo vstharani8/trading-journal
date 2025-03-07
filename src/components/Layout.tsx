@@ -1,68 +1,60 @@
-import { Outlet, Link, useLocation } from 'react-router-dom'
-import {
-  HomeIcon,
-  ClipboardDocumentListIcon,
-  Cog6ToothIcon,
-} from '@heroicons/react/24/outline'
+import { Link } from 'react-router-dom'
+import { useAuth } from '../contexts/AuthContext'
 
-const navigation = [
-  { name: 'Dashboard', href: '/', icon: HomeIcon },
-  { name: 'Trades', href: '/trades', icon: ClipboardDocumentListIcon },
-  { name: 'New Trade', href: '/trades/new', icon: Cog6ToothIcon },
-]
+interface LayoutProps {
+  children: React.ReactNode
+}
 
-function Layout() {
-  const location = useLocation()
+function Layout({ children }: LayoutProps) {
+  const { signOut } = useAuth()
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="flex">
-        {/* Sidebar */}
-        <div className="hidden md:flex md:w-64 md:flex-col">
-          <div className="flex min-h-0 flex-1 flex-col border-r border-gray-200 bg-white">
-            <div className="flex flex-1 flex-col overflow-y-auto pt-5 pb-4">
-              <div className="flex flex-shrink-0 items-center px-4">
-                <h1 className="text-2xl font-bold text-primary-600">Trading Journal</h1>
+    <div className="min-h-screen bg-gray-100">
+      {/* Navigation */}
+      <nav className="bg-white shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between h-16">
+            <div className="flex">
+              <div className="flex-shrink-0 flex items-center">
+                <h1 className="text-xl font-bold text-gray-900">Trading Journal</h1>
               </div>
-              <nav className="mt-5 flex-1 space-y-1 bg-white px-2">
-                {navigation.map((item) => {
-                  const isActive = location.pathname === item.href
-                  return (
-                    <Link
-                      key={item.name}
-                      to={item.href}
-                      className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md ${
-                        isActive
-                          ? 'bg-primary-100 text-primary-900'
-                          : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                      }`}
-                    >
-                      <item.icon
-                        className={`mr-3 h-6 w-6 flex-shrink-0 ${
-                          isActive ? 'text-primary-600' : 'text-gray-400 group-hover:text-gray-500'
-                        }`}
-                        aria-hidden="true"
-                      />
-                      {item.name}
-                    </Link>
-                  )
-                })}
-              </nav>
+              <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
+                <Link
+                  to="/"
+                  className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
+                >
+                  Dashboard
+                </Link>
+                <Link
+                  to="/trade/new"
+                  className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
+                >
+                  New Trade
+                </Link>
+                <Link
+                  to="/settings"
+                  className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
+                >
+                  Settings
+                </Link>
+              </div>
+            </div>
+            <div className="flex items-center">
+              <button
+                onClick={signOut}
+                className="text-gray-500 hover:text-gray-700 px-3 py-2 rounded-md text-sm font-medium"
+              >
+                Sign Out
+              </button>
             </div>
           </div>
         </div>
+      </nav>
 
-        {/* Main content */}
-        <div className="flex flex-1 flex-col">
-          <main className="flex-1">
-            <div className="py-6">
-              <div className="mx-auto max-w-7xl px-4 sm:px-6 md:px-8">
-                <Outlet />
-              </div>
-            </div>
-          </main>
-        </div>
-      </div>
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        {children}
+      </main>
     </div>
   )
 }

@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react'
-import { db } from '../services/db'
+import { db } from '../services/supabase'
 
 function Settings() {
   const [strategies, setStrategies] = useState<string[]>([])
   const [newStrategy, setNewStrategy] = useState('')
   const [isLoading, setIsLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
 
   useEffect(() => {
     const loadSettings = async () => {
@@ -48,6 +51,59 @@ function Settings() {
     }
   }
 
+  const handleExport = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      setSuccess(null)
+
+      const data = await db.exportData()
+      const blob = new Blob([data], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `trading-journal-${new Date().toISOString().split('T')[0]}.json`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+
+      setSuccess('Data exported successfully')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to export data')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    try {
+      setLoading(true)
+      setError(null)
+      setSuccess(null)
+
+      const reader = new FileReader()
+      reader.onload = async (event) => {
+        try {
+          const data = event.target?.result as string
+          await db.importData(data)
+          setSuccess('Data imported successfully')
+        } catch (err) {
+          setError(err instanceof Error ? err.message : 'Failed to import data')
+        } finally {
+          setLoading(false)
+        }
+      }
+      reader.readAsText(file)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to read file')
+      setLoading(false)
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -59,6 +115,18 @@ function Settings() {
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-semibold text-gray-900">Settings</h1>
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-6">
+          <p className="text-red-600">{error}</p>
+        </div>
+      )}
+
+      {success && (
+        <div className="bg-green-50 border border-green-200 rounded-md p-4 mb-6">
+          <p className="text-green-600">{success}</p>
+        </div>
+      )}
 
       {/* Trading Strategies */}
       <div className="card">
@@ -106,58 +174,46 @@ function Settings() {
       {/* Data Management */}
       <div className="card">
         <h2 className="text-lg font-medium text-gray-900 mb-4">Data Management</h2>
-        <div className="space-y-4">
+        <div className="space-y-6">
           <div>
             <h3 className="text-sm font-medium text-gray-700 mb-2">Export Data</h3>
             <button
-              onClick={async () => {
-                const data = await db.exportData()
-                const blob = new Blob([data], { type: 'application/json' })
-                const url = URL.createObjectURL(blob)
-                const a = document.createElement('a')
-                a.href = url
-                a.download = 'trading-journal-data.json'
-                document.body.appendChild(a)
-                a.click()
-                document.body.removeChild(a)
-                URL.revokeObjectURL(url)
-              }}
-              className="btn btn-secondary"
+              onClick={handleExport}
+              disabled={loading}
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50"
             >
-              Export to JSON
+              {loading ? 'Exporting...' : 'Export Data'}
             </button>
           </div>
+
           <div>
             <h3 className="text-sm font-medium text-gray-700 mb-2">Import Data</h3>
-            <input
-              type="file"
-              accept=".json"
-              onChange={(e) => {
-                const file = e.target.files?.[0]
-                if (file) {
-                  const reader = new FileReader()
-                  reader.onload = async (event) => {
-                    try {
-                      const jsonData = event.target?.result as string
-                      await db.importData(jsonData)
-                      window.location.reload()
-                    } catch (error) {
-                      alert('Error importing data. Please make sure the file is valid JSON.')
-                    }
-                  }
-                  reader.readAsText(file)
-                }
-              }}
-              className="block w-full text-sm text-gray-500
-                file:mr-4 file:py-2 file:px-4
-                file:rounded-full file:border-0
-                file:text-sm file:font-semibold
-                file:bg-primary-50 file:text-primary-700
-                hover:file:bg-primary-100"
-            />
+            <p className="text-sm text-gray-500 mb-2">
+              Import your trading data from a previously exported JSON file. This will replace all existing data.
+            </p>
+            <div className="flex items-center space-x-4">
+              <label
+                htmlFor="import-file"
+                className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 cursor-pointer"
+              >
+                {loading ? 'Importing...' : 'Select File'}
+              </label>
+              <input
+                type="file"
+                id="import-file"
+                accept=".json"
+                onChange={handleImport}
+                disabled={loading}
+                className="hidden"
+              />
+            </div>
           </div>
+
           <div>
             <h3 className="text-sm font-medium text-gray-700 mb-2">Clear All Data</h3>
+            <p className="text-sm text-gray-500 mb-2">
+              Warning: This will permanently delete all your trading data and settings.
+            </p>
             <button
               onClick={async () => {
                 if (window.confirm('Are you sure you want to clear all data? This action cannot be undone.')) {

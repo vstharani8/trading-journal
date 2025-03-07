@@ -1,181 +1,143 @@
 import { useState, useEffect } from 'react'
-import { useNavigate, useParams, useLocation } from 'react-router-dom'
-import { db, type Trade } from '../services/db'
+import { useParams, useNavigate } from 'react-router-dom'
+import { db } from '../services/supabase'
+import { useAuth } from '../contexts/AuthContext'
+import type { Trade } from '../services/supabase'
 
-type TradeFormData = Omit<Trade, 'id' | 'createdAt' | 'updatedAt'>
+type TradeFormData = Omit<Trade, 'id' | 'created_at' | 'updated_at'>
 
 const initialFormData: TradeFormData = {
   symbol: '',
-  entryDate: new Date().toISOString().slice(0, 16),
-  exitDate: null,
-  entryPrice: 0,
-  exitPrice: null,
-  positionSize: 0,
   type: 'long',
-  stopLoss: null,
-  takeProfit: null,
-  fees: null,
-  strategy: null,
+  entry_date: new Date().toISOString().split('T')[0],
+  exit_date: null,
+  entry_price: 0,
+  exit_price: null,
+  position_size: 1,
+  strategy: '',
   notes: '',
+  fees: 0,
+  stop_loss: null,
+  take_profit: null,
   screenshot: null,
-  status: 'open'
-}
-
-interface FormErrors {
-  symbol?: string
-  entryDate?: string
-  exitDate?: string
-  entryPrice?: string
-  exitPrice?: string
-  positionSize?: string
-  status?: string
+  status: 'open',
+  user_id: '', // This will be set by the auth context
 }
 
 function TradeForm() {
+  const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { id } = useParams()
-  const location = useLocation()
+  const { user } = useAuth()
   const [formData, setFormData] = useState<TradeFormData>(initialFormData)
-  const [errors, setErrors] = useState<FormErrors>({})
-  const [strategies, setStrategies] = useState<string[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    const loadData = async () => {
-      try {
-        // Load strategies
-        const savedStrategies = await db.getStrategies()
-        setStrategies(savedStrategies)
+    if (user?.id) {
+      setFormData(prev => ({ ...prev, user_id: user.id }))
+    }
+  }, [user])
 
-        // If editing, load trade data
-        if (id) {
-          const trade = await db.getTrade(id)
-          if (trade) {
-            const { createdAt, updatedAt, id: _, ...formData } = trade
-            setFormData(formData)
-          }
-        }
-      } catch (error) {
-        console.error('Error loading form data:', error)
+  useEffect(() => {
+    if (id) {
+      loadTrade()
+    }
+  }, [id])
+
+  const loadTrade = async () => {
+    try {
+      setLoading(true)
+      const trade = await db.getTrade(id!)
+      if (trade) {
+        const { id: _, created_at: __, updated_at: ___, ...tradeData } = trade
+        setFormData(tradeData)
       }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load trade')
+    } finally {
+      setLoading(false)
     }
-
-    loadData()
-  }, [id, location.key])
-
-  const validateForm = (): boolean => {
-    const newErrors: FormErrors = {}
-    
-    if (!formData.symbol) {
-      newErrors.symbol = 'Symbol is required'
-    }
-    if (!formData.entryDate) {
-      newErrors.entryDate = 'Entry date is required'
-    }
-    if (!formData.entryPrice || formData.entryPrice <= 0) {
-      newErrors.entryPrice = 'Valid entry price is required'
-    }
-    if (!formData.positionSize || formData.positionSize <= 0) {
-      newErrors.positionSize = 'Valid position size is required'
-    }
-    if (formData.status === 'closed' && (!formData.exitDate || !formData.exitPrice)) {
-      newErrors.exitDate = 'Exit date and price are required for closed trades'
-      newErrors.exitPrice = 'Exit price is required for closed trades'
-    }
-
-    setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!validateForm()) {
-      return
-    }
+    setLoading(true)
+    setError(null)
 
-    const now = new Date().toISOString()
-    const tradeData: Trade = {
-      ...formData,
-      id: id || crypto.randomUUID(),
-      createdAt: now,
-      updatedAt: now,
+    try {
+      if (id) {
+        await db.updateTrade({ ...formData, id, created_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+      } else {
+        await db.addTrade(formData)
+      }
+      navigate('/')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save trade')
+    } finally {
+      setLoading(false)
     }
-
-    if (id) {
-      await db.updateTrade(tradeData)
-    } else {
-      await db.addTrade(tradeData)
-    }
-
-    navigate('/trades')
   }
 
-  const handleInputChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
-    const { name, value, type } = e.target
+    const { name, value } = e.target
     setFormData((prev) => ({
       ...prev,
-      [name]: name === 'notes' || name === 'symbol' || name === 'type' || name === 'entryDate' || name === 'exitDate' || name === 'status'
-        ? value
-        : type === 'number'
-        ? (value ? Number(value) : null)
+      [name]: name === 'position_size' || name === 'entry_price' || name === 'exit_price' || name === 'fees' || name === 'stop_loss' || name === 'take_profit'
+        ? Number(value)
         : value,
     }))
   }
 
-  const handleScreenshotUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      const reader = new FileReader()
-      reader.onloadend = () => {
-        setFormData((prev) => ({
-          ...prev,
-          screenshot: reader.result as string,
-        }))
-      }
-      reader.readAsDataURL(file)
-    }
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+      </div>
+    )
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-semibold text-gray-900">
-          {id ? 'Edit Trade' : 'New Trade'}
-        </h1>
-        <button
-          onClick={() => navigate('/trades')}
-          className="btn btn-secondary"
-        >
-          Cancel
-        </button>
-      </div>
+    <div className="max-w-2xl mx-auto">
+      <h2 className="text-2xl font-bold text-gray-900 mb-6">
+        {id ? 'Edit Trade' : 'New Trade'}
+      </h2>
 
-      <form onSubmit={handleSubmit} className="card space-y-6">
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-6">
+          <p className="text-red-600">{error}</p>
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} className="space-y-6">
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
           <div>
-            <label className="block text-sm font-medium text-gray-700">Symbol</label>
+            <label htmlFor="symbol" className="block text-sm font-medium text-gray-700">
+              Symbol
+            </label>
             <input
               type="text"
               name="symbol"
-              value={formData.symbol}
-              onChange={handleInputChange}
-              className="input mt-1"
+              id="symbol"
               required
+              value={formData.symbol}
+              onChange={handleChange}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
             />
-            {errors.symbol && (
-              <p className="mt-1 text-sm text-red-600">{errors.symbol}</p>
-            )}
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700">Trade Type</label>
+            <label htmlFor="type" className="block text-sm font-medium text-gray-700">
+              Type
+            </label>
             <select
               name="type"
-              value={formData.type}
-              onChange={handleInputChange}
-              className="input mt-1"
+              id="type"
               required
+              value={formData.type}
+              onChange={handleChange}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
             >
               <option value="long">Long</option>
               <option value="short">Short</option>
@@ -183,187 +145,187 @@ function TradeForm() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700">Entry Date</label>
+            <label htmlFor="entry_date" className="block text-sm font-medium text-gray-700">
+              Entry Date
+            </label>
             <input
-              type="datetime-local"
-              name="entryDate"
-              value={formData.entryDate}
-              onChange={handleInputChange}
-              className="input mt-1"
+              type="date"
+              name="entry_date"
+              id="entry_date"
               required
+              value={formData.entry_date}
+              onChange={handleChange}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
             />
-            {errors.entryDate && (
-              <p className="mt-1 text-sm text-red-600">{errors.entryDate}</p>
-            )}
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700">Exit Date</label>
+            <label htmlFor="exit_date" className="block text-sm font-medium text-gray-700">
+              Exit Date
+            </label>
             <input
-              type="datetime-local"
-              name="exitDate"
-              value={formData.exitDate || ''}
-              onChange={handleInputChange}
-              className="input mt-1"
-              disabled={formData.status === 'open'}
+              type="date"
+              name="exit_date"
+              id="exit_date"
+              value={formData.exit_date || ''}
+              onChange={handleChange}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
             />
-            {errors.exitDate && (
-              <p className="mt-1 text-sm text-red-600">{errors.exitDate}</p>
-            )}
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700">Entry Price</label>
+            <label htmlFor="entry_price" className="block text-sm font-medium text-gray-700">
+              Entry Price
+            </label>
             <input
               type="number"
-              name="entryPrice"
-              value={formData.entryPrice}
-              onChange={handleInputChange}
-              className="input mt-1"
+              name="entry_price"
+              id="entry_price"
+              required
               step="0.01"
-              required
+              value={formData.entry_price}
+              onChange={handleChange}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
             />
-            {errors.entryPrice && (
-              <p className="mt-1 text-sm text-red-600">{errors.entryPrice}</p>
-            )}
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700">Exit Price</label>
+            <label htmlFor="exit_price" className="block text-sm font-medium text-gray-700">
+              Exit Price
+            </label>
             <input
               type="number"
-              name="exitPrice"
-              value={formData.exitPrice || ''}
-              onChange={handleInputChange}
-              className="input mt-1"
+              name="exit_price"
+              id="exit_price"
               step="0.01"
-              disabled={formData.status === 'open'}
+              value={formData.exit_price || ''}
+              onChange={handleChange}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
             />
-            {errors.exitPrice && (
-              <p className="mt-1 text-sm text-red-600">{errors.exitPrice}</p>
-            )}
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700">Position Size</label>
+            <label htmlFor="position_size" className="block text-sm font-medium text-gray-700">
+              Position Size
+            </label>
             <input
               type="number"
-              name="positionSize"
-              value={formData.positionSize}
-              onChange={handleInputChange}
-              className="input mt-1"
+              name="position_size"
+              id="position_size"
               required
+              min="1"
+              value={formData.position_size}
+              onChange={handleChange}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
             />
-            {errors.positionSize && (
-              <p className="mt-1 text-sm text-red-600">{errors.positionSize}</p>
-            )}
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700">Status</label>
+            <label htmlFor="fees" className="block text-sm font-medium text-gray-700">
+              Fees
+            </label>
+            <input
+              type="number"
+              name="fees"
+              id="fees"
+              step="0.01"
+              value={formData.fees || ''}
+              onChange={handleChange}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="stop_loss" className="block text-sm font-medium text-gray-700">
+              Stop Loss
+            </label>
+            <input
+              type="number"
+              name="stop_loss"
+              id="stop_loss"
+              step="0.01"
+              value={formData.stop_loss || ''}
+              onChange={handleChange}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="take_profit" className="block text-sm font-medium text-gray-700">
+              Take Profit
+            </label>
+            <input
+              type="number"
+              name="take_profit"
+              id="take_profit"
+              step="0.01"
+              value={formData.take_profit || ''}
+              onChange={handleChange}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="status" className="block text-sm font-medium text-gray-700">
+              Status
+            </label>
             <select
               name="status"
-              value={formData.status}
-              onChange={handleInputChange}
-              className="input mt-1"
+              id="status"
               required
+              value={formData.status}
+              onChange={handleChange}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
             >
               <option value="open">Open</option>
               <option value="closed">Closed</option>
             </select>
           </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Stop Loss</label>
-            <input
-              type="number"
-              name="stopLoss"
-              value={formData.stopLoss || ''}
-              onChange={handleInputChange}
-              className="input mt-1"
-              step="0.01"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Take Profit</label>
-            <input
-              type="number"
-              name="takeProfit"
-              value={formData.takeProfit || ''}
-              onChange={handleInputChange}
-              className="input mt-1"
-              step="0.01"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Fees</label>
-            <input
-              type="number"
-              name="fees"
-              value={formData.fees || ''}
-              onChange={handleInputChange}
-              className="input mt-1"
-              step="0.01"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Strategy</label>
-            <select
-              name="strategy"
-              value={formData.strategy || ''}
-              onChange={handleInputChange}
-              className="input mt-1"
-            >
-              <option value="">Select a strategy</option>
-              {strategies.map((strategy) => (
-                <option key={strategy} value={strategy}>
-                  {strategy}
-                </option>
-              ))}
-            </select>
-          </div>
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700">Screenshot</label>
+          <label htmlFor="strategy" className="block text-sm font-medium text-gray-700">
+            Strategy
+          </label>
           <input
-            type="file"
-            accept="image/*"
-            onChange={handleScreenshotUpload}
-            className="mt-1 block w-full text-sm text-gray-500
-              file:mr-4 file:py-2 file:px-4
-              file:rounded-full file:border-0
-              file:text-sm file:font-semibold
-              file:bg-primary-50 file:text-primary-700
-              hover:file:bg-primary-100"
+            type="text"
+            name="strategy"
+            id="strategy"
+            required
+            value={formData.strategy || ''}
+            onChange={handleChange}
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
           />
-          {formData.screenshot && (
-            <img
-              src={formData.screenshot}
-              alt="Trade screenshot"
-              className="mt-2 max-w-xs rounded-lg shadow-sm"
-            />
-          )}
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700">Notes</label>
+          <label htmlFor="notes" className="block text-sm font-medium text-gray-700">
+            Notes
+          </label>
           <textarea
             name="notes"
-            value={formData.notes}
-            onChange={handleInputChange}
+            id="notes"
             rows={4}
-            className="input mt-1"
-            placeholder="Enter your trade notes, strategy, market conditions, etc."
+            value={formData.notes}
+            onChange={handleChange}
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
           />
         </div>
 
-        <div className="flex justify-end">
-          <button type="submit" className="btn btn-primary">
-            {id ? 'Update Trade' : 'Save Trade'}
+        <div className="flex justify-end space-x-3">
+          <button
+            type="button"
+            onClick={() => navigate('/')}
+            className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={loading}
+            className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50"
+          >
+            {loading ? 'Saving...' : 'Save Trade'}
           </button>
         </div>
       </form>
