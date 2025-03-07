@@ -2,11 +2,42 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { db } from '../services/supabase'
 import type { Trade } from '../services/supabase'
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer
+} from 'recharts'
+import { format, parseISO, startOfMonth, endOfMonth, eachMonthOfInterval, subMonths, isWithinInterval } from 'date-fns'
+
+interface Statistics {
+  totalProfitLoss: number
+  winRate: number
+  profitFactor: number
+  maxDrawdown: number
+}
+
+interface MonthlyData {
+  month: string
+  profitLoss: number
+  winRate: number
+}
 
 function Dashboard() {
   const [trades, setTrades] = useState<Trade[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [statistics, setStatistics] = useState<Statistics>({
+    totalProfitLoss: 0,
+    winRate: 0,
+    profitFactor: 0,
+    maxDrawdown: 0
+  })
+  const [monthlyData, setMonthlyData] = useState<MonthlyData[]>([])
 
   useEffect(() => {
     loadTrades()
@@ -16,11 +47,95 @@ function Dashboard() {
     try {
       const data = await db.getAllTrades()
       setTrades(data)
+      calculateStatistics(data)
+      calculateMonthlyData(data)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load trades')
     } finally {
       setLoading(false)
     }
+  }
+
+  const calculateProfitLoss = (trade: Trade) => {
+    if (!trade.exit_price) return 0
+    const profitLoss = trade.type === 'long'
+      ? (trade.exit_price - trade.entry_price) * trade.position_size
+      : (trade.entry_price - trade.exit_price) * trade.position_size
+    return profitLoss - (trade.fees || 0)
+  }
+
+  const calculateStatistics = (trades: Trade[]) => {
+    const closedTrades = trades.filter(t => t.status === 'closed')
+    if (closedTrades.length === 0) return
+
+    const profitLosses = closedTrades.map(calculateProfitLoss)
+    const winningTrades = profitLosses.filter(pl => pl > 0)
+    const losingTrades = profitLosses.filter(pl => pl < 0)
+
+    const totalProfitLoss = profitLosses.reduce((sum, pl) => sum + pl, 0)
+    const winRate = (winningTrades.length / closedTrades.length) * 100
+    
+    const totalWins = winningTrades.reduce((sum, pl) => sum + pl, 0)
+    const totalLosses = Math.abs(losingTrades.reduce((sum, pl) => sum + pl, 0))
+    const profitFactor = totalLosses > 0 ? totalWins / totalLosses : 0
+
+    // Calculate max drawdown
+    let maxDrawdown = 0
+    let peak = 0
+    let balance = 0
+    
+    closedTrades
+      .sort((a, b) => new Date(a.exit_date!).getTime() - new Date(b.exit_date!).getTime())
+      .forEach(trade => {
+        const pl = calculateProfitLoss(trade)
+        balance += pl
+        if (balance > peak) {
+          peak = balance
+        }
+        const drawdown = peak - balance
+        if (drawdown > maxDrawdown) {
+          maxDrawdown = drawdown
+        }
+      })
+
+    setStatistics({
+      totalProfitLoss,
+      winRate,
+      profitFactor,
+      maxDrawdown
+    })
+  }
+
+  const calculateMonthlyData = (trades: Trade[]) => {
+    const last6Months = eachMonthOfInterval({
+      start: subMonths(new Date(), 5),
+      end: new Date()
+    })
+
+    const monthlyStats = last6Months.map(month => {
+      const monthTrades = trades.filter(trade => {
+        if (!trade.exit_date) return false
+        const tradeDate = parseISO(trade.exit_date)
+        return isWithinInterval(tradeDate, {
+          start: startOfMonth(month),
+          end: endOfMonth(month)
+        })
+      })
+
+      const profitLoss = monthTrades.reduce((sum, trade) => sum + calculateProfitLoss(trade), 0)
+      const closedTrades = monthTrades.filter(t => t.status === 'closed')
+      const winRate = closedTrades.length > 0
+        ? (closedTrades.filter(t => calculateProfitLoss(t) > 0).length / closedTrades.length) * 100
+        : 0
+
+      return {
+        month: format(month, 'MMM yyyy'),
+        profitLoss,
+        winRate
+      }
+    })
+
+    setMonthlyData(monthlyStats)
   }
 
   const handleDelete = async (id: string) => {
@@ -32,14 +147,6 @@ function Dashboard() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete trade')
     }
-  }
-
-  const calculateProfitLoss = (trade: Trade) => {
-    if (!trade.exit_price) return 0
-    const profitLoss = trade.type === 'long'
-      ? (trade.exit_price - trade.entry_price) * trade.position_size
-      : (trade.entry_price - trade.exit_price) * trade.position_size
-    return profitLoss - (trade.fees || 0)
   }
 
   if (loading) {
@@ -60,8 +167,72 @@ function Dashboard() {
 
   return (
     <div className="space-y-6">
+      <h1 className="text-2xl font-semibold text-gray-900">Trading Dashboard</h1>
+
+      {/* Statistics Cards */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="bg-white rounded-lg shadow p-6">
+          <h3 className="text-sm font-medium text-gray-500">Total Profit/Loss</h3>
+          <p className={`mt-2 text-2xl font-semibold ${
+            statistics.totalProfitLoss >= 0 ? 'text-green-600' : 'text-red-600'
+          }`}>
+            ${statistics.totalProfitLoss.toFixed(2)}
+          </p>
+        </div>
+        <div className="bg-white rounded-lg shadow p-6">
+          <h3 className="text-sm font-medium text-gray-500">Win Rate</h3>
+          <p className="mt-2 text-2xl font-semibold text-gray-900">
+            {statistics.winRate.toFixed(1)}%
+          </p>
+        </div>
+        <div className="bg-white rounded-lg shadow p-6">
+          <h3 className="text-sm font-medium text-gray-500">Profit Factor</h3>
+          <p className="mt-2 text-2xl font-semibold text-gray-900">
+            {statistics.profitFactor.toFixed(2)}
+          </p>
+        </div>
+        <div className="bg-white rounded-lg shadow p-6">
+          <h3 className="text-sm font-medium text-gray-500">Max Drawdown</h3>
+          <p className="mt-2 text-2xl font-semibold text-red-600">
+            ${statistics.maxDrawdown.toFixed(2)}
+          </p>
+        </div>
+      </div>
+
+      {/* Monthly Performance Chart */}
+      <div className="bg-white rounded-lg shadow p-6">
+        <h2 className="text-lg font-medium text-gray-900 mb-4">Monthly Performance</h2>
+        <div className="h-80">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={monthlyData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="month" />
+              <YAxis yAxisId="left" />
+              <YAxis yAxisId="right" orientation="right" />
+              <Tooltip />
+              <Legend />
+              <Line
+                yAxisId="left"
+                type="monotone"
+                dataKey="profitLoss"
+                stroke="#8884d8"
+                name="Profit/Loss"
+              />
+              <Line
+                yAxisId="right"
+                type="monotone"
+                dataKey="winRate"
+                stroke="#82ca9d"
+                name="Win Rate (%)"
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* Recent Trades */}
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-gray-900">Recent Trades</h2>
+        <h2 className="text-lg font-medium text-gray-900">Recent Trades</h2>
         <Link
           to="/trade/new"
           className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
@@ -95,8 +266,7 @@ function Dashboard() {
                                 : 'bg-red-100 text-red-800'
                             }`}
                           >
-                            {profitLoss >= 0 ? '+' : ''}
-                            {profitLoss.toFixed(2)}%
+                            {profitLoss >= 0 ? '+' : ''}${profitLoss.toFixed(2)}
                           </p>
                         </div>
                       </div>
