@@ -1,0 +1,179 @@
+import { useState, useEffect } from 'react'
+import { db } from '../services/db'
+
+function Settings() {
+  const [strategies, setStrategies] = useState<string[]>([])
+  const [newStrategy, setNewStrategy] = useState('')
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        setIsLoading(true)
+        const savedStrategies = await db.getStrategies()
+        setStrategies(savedStrategies || [])
+      } catch (error) {
+        console.error('Error loading settings:', error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    loadSettings()
+  }, [])
+
+  const handleAddStrategy = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const trimmedStrategy = newStrategy.trim()
+    if (trimmedStrategy && !strategies.includes(trimmedStrategy)) {
+      try {
+        const updatedStrategies = [...strategies, trimmedStrategy]
+        await db.setStrategies(updatedStrategies)
+        setStrategies(updatedStrategies)
+        setNewStrategy('')
+      } catch (error) {
+        console.error('Error adding strategy:', error)
+        alert('Failed to add strategy. Please try again.')
+      }
+    }
+  }
+
+  const handleDeleteStrategy = async (strategy: string) => {
+    try {
+      const updatedStrategies = strategies.filter((s) => s !== strategy)
+      await db.setStrategies(updatedStrategies)
+      setStrategies(updatedStrategies)
+    } catch (error) {
+      console.error('Error deleting strategy:', error)
+      alert('Failed to delete strategy. Please try again.')
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="text-gray-600">Loading settings...</div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      <h1 className="text-2xl font-semibold text-gray-900">Settings</h1>
+
+      {/* Trading Strategies */}
+      <div className="card">
+        <h2 className="text-lg font-medium text-gray-900 mb-4">Trading Strategies</h2>
+        <form onSubmit={handleAddStrategy} className="flex gap-2 mb-4">
+          <input
+            type="text"
+            value={newStrategy}
+            onChange={(e) => setNewStrategy(e.target.value)}
+            placeholder="Enter new strategy"
+            className="input flex-1"
+            required
+            minLength={1}
+          />
+          <button 
+            type="submit" 
+            className="btn btn-primary"
+            disabled={!newStrategy.trim()}
+          >
+            Add Strategy
+          </button>
+        </form>
+        <div className="space-y-2">
+          {strategies.length === 0 ? (
+            <p className="text-sm text-gray-500">No strategies added yet.</p>
+          ) : (
+            strategies.map((strategy) => (
+              <div
+                key={strategy}
+                className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+              >
+                <span className="text-sm text-gray-900">{strategy}</span>
+                <button
+                  onClick={() => handleDeleteStrategy(strategy)}
+                  className="text-red-600 hover:text-red-900"
+                >
+                  Delete
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      {/* Data Management */}
+      <div className="card">
+        <h2 className="text-lg font-medium text-gray-900 mb-4">Data Management</h2>
+        <div className="space-y-4">
+          <div>
+            <h3 className="text-sm font-medium text-gray-700 mb-2">Export Data</h3>
+            <button
+              onClick={async () => {
+                const data = await db.exportData()
+                const blob = new Blob([data], { type: 'application/json' })
+                const url = URL.createObjectURL(blob)
+                const a = document.createElement('a')
+                a.href = url
+                a.download = 'trading-journal-data.json'
+                document.body.appendChild(a)
+                a.click()
+                document.body.removeChild(a)
+                URL.revokeObjectURL(url)
+              }}
+              className="btn btn-secondary"
+            >
+              Export to JSON
+            </button>
+          </div>
+          <div>
+            <h3 className="text-sm font-medium text-gray-700 mb-2">Import Data</h3>
+            <input
+              type="file"
+              accept=".json"
+              onChange={(e) => {
+                const file = e.target.files?.[0]
+                if (file) {
+                  const reader = new FileReader()
+                  reader.onload = async (event) => {
+                    try {
+                      const jsonData = event.target?.result as string
+                      await db.importData(jsonData)
+                      window.location.reload()
+                    } catch (error) {
+                      alert('Error importing data. Please make sure the file is valid JSON.')
+                    }
+                  }
+                  reader.readAsText(file)
+                }
+              }}
+              className="block w-full text-sm text-gray-500
+                file:mr-4 file:py-2 file:px-4
+                file:rounded-full file:border-0
+                file:text-sm file:font-semibold
+                file:bg-primary-50 file:text-primary-700
+                hover:file:bg-primary-100"
+            />
+          </div>
+          <div>
+            <h3 className="text-sm font-medium text-gray-700 mb-2">Clear All Data</h3>
+            <button
+              onClick={async () => {
+                if (window.confirm('Are you sure you want to clear all data? This action cannot be undone.')) {
+                  await db.importData('{"trades":[],"strategies":[]}')
+                  window.location.reload()
+                }
+              }}
+              className="btn btn-danger"
+            >
+              Clear All Data
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export default Settings 
