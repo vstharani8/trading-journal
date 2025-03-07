@@ -63,7 +63,7 @@ function Settings() {
           exit_date: null,
           entry_price: 0,
           exit_price: null,
-          position_size: 0,
+          quantity: 0,
           strategy: trimmedStrategy,
           notes: 'Strategy placeholder',
           fees: 0,
@@ -153,30 +153,44 @@ function Settings() {
     }
   }
 
-  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
+  const handleImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
     if (!file) return
 
     try {
       setLoading(true)
-      setError(null)
-      setSuccess(null)
-
-      const reader = new FileReader()
-      reader.onload = async (event) => {
-        try {
-          const data = event.target?.result as string
-          await db.importData(data)
-          setSuccess('Data imported successfully')
-        } catch (err) {
-          setError(err instanceof Error ? err.message : 'Failed to import data')
-        } finally {
-          setLoading(false)
-        }
+      const text = await file.text()
+      const data = JSON.parse(text)
+      
+      // Validate the data structure
+      if (!Array.isArray(data.trades)) {
+        throw new Error('Invalid data format')
       }
-      reader.readAsText(file)
+
+      // Process each trade to ensure it has the correct structure
+      const processedTrades = data.trades.map((trade: any) => ({
+        symbol: trade.symbol,
+        type: trade.type,
+        entry_date: trade.entry_date,
+        exit_date: trade.exit_date,
+        entry_price: trade.entry_price,
+        exit_price: trade.exit_price,
+        quantity: trade.quantity,
+        strategy: trade.strategy,
+        notes: trade.notes || '',
+        fees: trade.fees || 0,
+        stop_loss: trade.stop_loss,
+        take_profit: trade.take_profit,
+        screenshot: trade.screenshot,
+        status: trade.status,
+        user_id: user?.id || ''
+      }))
+
+      await db.importData(JSON.stringify({ trades: processedTrades }))
+      setSuccess('Data imported successfully')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to read file')
+      setError(err instanceof Error ? err.message : 'Failed to import data')
+    } finally {
       setLoading(false)
     }
   }

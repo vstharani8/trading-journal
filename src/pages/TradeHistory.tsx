@@ -57,9 +57,9 @@ function TradeHistory() {
 
   const loadUserSettings = async () => {
     try {
-      const { data: { user } } = await db.supabase.auth.getUser()
-      if (user) {
-        const settings = await db.getUserSettings(user.id)
+      const { data: { session } } = await db.supabase.auth.getSession()
+      if (session?.user) {
+        const settings = await db.getUserSettings(session.user.id)
         setUserSettings(settings)
       }
     } catch (err) {

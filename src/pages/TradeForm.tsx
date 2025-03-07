@@ -88,11 +88,11 @@ function TradeForm() {
       setLoading(true)
       const trade = await db.getTrade(id!)
       if (trade) {
-        const { id: _, created_at: __, updated_at: ___, position_size, ...tradeData } = trade
+        const { id: _, created_at: __, updated_at: ___, ...tradeData } = trade
         setFormData({
           ...tradeData,
           entry_price: tradeData.entry_price || null,
-          quantity: position_size || 0
+          quantity: trade.quantity
         })
       }
     } catch (err) {
@@ -100,11 +100,6 @@ function TradeForm() {
     } finally {
       setLoading(false)
     }
-  }
-
-  const calculatePositionSize = (entryPrice: number | null, qty: number): number => {
-    if (!entryPrice) return 0
-    return entryPrice * qty
   }
 
   const calculateMaxQuantity = () => {
