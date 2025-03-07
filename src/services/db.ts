@@ -13,7 +13,6 @@ interface Trade {
   takeProfit: number | null
   fees: number | null
   strategy: string | null
-  setupType: string[]
   notes: string
   screenshot: string | null
   status: 'open' | 'closed'
@@ -50,7 +49,7 @@ class DatabaseService {
     if (this.db) return this.db
 
     this.db = await openDB<TradingJournalDB>(this.dbName, this.version, {
-      async upgrade(db: IDBPDatabase<TradingJournalDB>, oldVersion, newVersion) {
+      async upgrade(db: IDBPDatabase<TradingJournalDB>, oldVersion) {
         // If this is a fresh database, create all stores
         if (!db.objectStoreNames.contains('trades')) {
           const tradesStore = db.createObjectStore('trades', {

@@ -16,7 +16,6 @@ const initialFormData: TradeFormData = {
   takeProfit: null,
   fees: null,
   strategy: null,
-  setupType: [],
   notes: '',
   screenshot: null,
   status: 'open'

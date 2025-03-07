@@ -33,7 +33,6 @@ interface Statistics {
 }
 
 function Dashboard() {
-  const [trades, setTrades] = useState<Trade[]>([])
   const [statistics, setStatistics] = useState<Statistics>({
     totalTrades: 0,
     closedTrades: 0,
@@ -54,7 +53,6 @@ function Dashboard() {
     const loadTrades = async () => {
       try {
         const fetchedTrades = await db.getAllTrades()
-        setTrades(fetchedTrades)
         calculateStatistics(fetchedTrades)
         calculateMonthlyData(fetchedTrades)
         calculateStrategyData(fetchedTrades)
@@ -262,7 +260,7 @@ function Dashboard() {
                 outerRadius={100}
                 label
               >
-                {strategyData.map((entry, index) => (
+                {strategyData.map((_, index) => (
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                 ))}
               </Pie>

@@ -1,15 +1,14 @@
 import { Outlet, Link, useLocation } from 'react-router-dom'
 import {
   HomeIcon,
-  ChartBarIcon,
-  PlusCircleIcon,
   ClipboardDocumentListIcon,
+  Cog6ToothIcon,
 } from '@heroicons/react/24/outline'
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: HomeIcon },
   { name: 'Trades', href: '/trades', icon: ClipboardDocumentListIcon },
-  { name: 'New Trade', href: '/trades/new', icon: PlusCircleIcon },
+  { name: 'New Trade', href: '/trades/new', icon: Cog6ToothIcon },
 ]
 
 function Layout() {
