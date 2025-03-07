@@ -85,17 +85,44 @@ function TradeForm() {
 
     try {
       const submitData = {
-        ...formData,
-        entry_price: formData.entry_price || 0
+        symbol: formData.symbol,
+        type: formData.type,
+        entry_date: formData.entry_date,
+        exit_date: formData.exit_date,
+        entry_price: formData.entry_price || 0,
+        exit_price: formData.exit_price,
+        quantity: formData.quantity,
+        strategy: formData.strategy,
+        notes: formData.notes,
+        fees: formData.fees,
+        stop_loss: formData.stop_loss,
+        take_profit: formData.take_profit,
+        screenshot: formData.screenshot,
+        status: formData.status,
+        user_id: formData.user_id
       }
       
+      const now = new Date().toISOString()
+      
       if (id) {
-        await db.updateTrade({ ...submitData, id, created_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+        await db.updateTrade({ 
+          ...submitData, 
+          id,
+          created_at: now,
+          updated_at: now
+        })
       } else {
-        await db.addTrade(submitData)
+        try {
+          const result = await db.addTrade(submitData)
+          console.log('Trade submission result:', result)
+        } catch (submitError) {
+          console.error('Detailed submission error:', submitError)
+          throw submitError
+        }
       }
       navigate('/')
     } catch (err) {
+      console.error('Full error details:', err)
       setError(err instanceof Error ? err.message : 'Failed to save trade')
     } finally {
       setLoading(false)
