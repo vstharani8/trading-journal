@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import Layout from './components/Layout'
 import Dashboard from './pages/Dashboard'
+import TradeHistory from './pages/TradeHistory'
 import TradeForm from './pages/TradeForm'
 import Settings from './pages/Settings'
 import Login from './pages/Login'
@@ -36,6 +37,16 @@ function App() {
               <ProtectedRoute>
                 <Layout>
                   <Dashboard />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/trades"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <TradeHistory />
                 </Layout>
               </ProtectedRoute>
             }

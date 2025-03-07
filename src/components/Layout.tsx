@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 
 interface LayoutProps {
@@ -7,6 +7,13 @@ interface LayoutProps {
 
 function Layout({ children }: LayoutProps) {
   const { signOut } = useAuth()
+  const location = useLocation()
+
+  const isActive = (path: string) => {
+    return location.pathname === path
+      ? 'border-primary-500 text-gray-900'
+      : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+  }
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -21,19 +28,25 @@ function Layout({ children }: LayoutProps) {
               <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
                 <Link
                   to="/"
-                  className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
+                  className={`${isActive('/')} inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium`}
                 >
                   Dashboard
                 </Link>
                 <Link
+                  to="/trades"
+                  className={`${isActive('/trades')} inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium`}
+                >
+                  Trade History
+                </Link>
+                <Link
                   to="/trade/new"
-                  className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
+                  className={`${isActive('/trade/new')} inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium`}
                 >
                   New Trade
                 </Link>
                 <Link
                   to="/settings"
-                  className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
+                  className={`${isActive('/settings')} inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium`}
                 >
                   Settings
                 </Link>
