@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { db } from '../services/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import type { Trade } from '../services/supabase'
 
 type TradeFormData = {
   symbol: string

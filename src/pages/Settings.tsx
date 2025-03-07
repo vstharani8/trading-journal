@@ -55,8 +55,27 @@ function Settings() {
     const trimmedStrategy = newStrategy.trim()
     if (trimmedStrategy && !strategies.includes(trimmedStrategy)) {
       try {
-        const updatedStrategies = [...strategies, trimmedStrategy]
-        await db.setStrategies(updatedStrategies)
+        // Add a dummy trade with the new strategy to make it available
+        await db.addTrade({
+          symbol: 'STRATEGY',
+          type: 'long',
+          entry_date: new Date().toISOString(),
+          exit_date: null,
+          entry_price: 0,
+          exit_price: null,
+          position_size: 0,
+          strategy: trimmedStrategy,
+          notes: 'Strategy placeholder',
+          fees: 0,
+          stop_loss: null,
+          take_profit: null,
+          screenshot: null,
+          status: 'open',
+          user_id: user?.id || ''
+        })
+        
+        // Refresh strategies
+        const updatedStrategies = await db.getStrategies()
         setStrategies(updatedStrategies)
         setNewStrategy('')
       } catch (error) {
@@ -68,8 +87,16 @@ function Settings() {
 
   const handleDeleteStrategy = async (strategy: string) => {
     try {
-      const updatedStrategies = strategies.filter((s) => s !== strategy)
-      await db.setStrategies(updatedStrategies)
+      // Delete all trades with this strategy
+      const trades = await db.getAllTrades()
+      const tradesToDelete = trades.filter(t => t.strategy === strategy)
+      
+      for (const trade of tradesToDelete) {
+        await db.deleteTrade(trade.id)
+      }
+
+      // Refresh strategies
+      const updatedStrategies = await db.getStrategies()
       setStrategies(updatedStrategies)
     } catch (error) {
       console.error('Error deleting strategy:', error)

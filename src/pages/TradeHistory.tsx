@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { db } from '../services/supabase'
 import type { Trade } from '../services/supabase'
-import { format } from 'date-fns'
 
 interface FilterState {
   dateRange: string
@@ -17,8 +16,8 @@ function TradeHistory() {
   const [filteredTrades, setFilteredTrades] = useState<Trade[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [strategies, setStrategies] = useState<string[]>([])
   const [assets, setAssets] = useState<string[]>([])
+  const [strategies, setStrategies] = useState<string[]>([])
   const [filters, setFilters] = useState<FilterState>({
     dateRange: 'all',
     asset: 'all',
@@ -33,20 +32,20 @@ function TradeHistory() {
 
   useEffect(() => {
     applyFilters()
-  }, [filters, trades])
+  }, [trades, filters])
 
   const loadTrades = async () => {
     try {
+      setLoading(true)
       const data = await db.getAllTrades()
       setTrades(data)
       
       // Extract unique assets and strategies
-      const uniqueAssets = Array.from(new Set(data.map(t => t.symbol)))
-      const uniqueStrategies = Array.from(new Set(data.map(t => t.strategy).filter(Boolean) as string[]))
+      const uniqueAssets = [...new Set(data.map(trade => trade.symbol))]
+      const uniqueStrategies = [...new Set(data.map(trade => trade.strategy))]
       
       setAssets(uniqueAssets)
       setStrategies(uniqueStrategies)
-      setFilteredTrades(data)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load trades')
     } finally {
@@ -54,48 +53,65 @@ function TradeHistory() {
     }
   }
 
-  const calculateProfitLoss = (trade: Trade) => {
-    if (!trade.exit_price) return 0
-    const profitLoss = trade.type === 'long'
+  const calculateProfitLoss = (trade: Trade): number => {
+    if (!trade.exit_price || !trade.entry_price || !trade.position_size) return 0
+    return trade.type === 'long'
       ? (trade.exit_price - trade.entry_price) * trade.position_size
       : (trade.entry_price - trade.exit_price) * trade.position_size
-    return profitLoss - (trade.fees || 0)
   }
 
   const applyFilters = () => {
     let filtered = [...trades]
 
-    // Date Range Filter
+    // Date range filter
     if (filters.dateRange !== 'all') {
       const now = new Date()
-      const days = filters.dateRange === 'week' ? 7 : filters.dateRange === 'month' ? 30 : 365
-      const cutoff = new Date(now.setDate(now.getDate() - days))
-      filtered = filtered.filter(trade => new Date(trade.entry_date) >= cutoff)
+      const startDate = new Date()
+      
+      switch (filters.dateRange) {
+        case 'today':
+          startDate.setHours(0, 0, 0, 0)
+          break
+        case 'week':
+          startDate.setDate(now.getDate() - 7)
+          break
+        case 'month':
+          startDate.setMonth(now.getMonth() - 1)
+          break
+        case 'year':
+          startDate.setFullYear(now.getFullYear() - 1)
+          break
+      }
+      
+      filtered = filtered.filter(trade => new Date(trade.entry_date) >= startDate)
     }
 
-    // Asset Filter
+    // Asset filter
     if (filters.asset !== 'all') {
       filtered = filtered.filter(trade => trade.symbol === filters.asset)
     }
 
-    // Strategy Filter
+    // Strategy filter
     if (filters.strategy !== 'all') {
       filtered = filtered.filter(trade => trade.strategy === filters.strategy)
     }
 
-    // Status Filter
+    // Status filter
     if (filters.status !== 'all') {
       filtered = filtered.filter(trade => trade.status === filters.status)
     }
 
-    // Profit Range Filter
+    // Profit range filter
     if (filters.profitRange !== 'all') {
       filtered = filtered.filter(trade => {
         const pl = calculateProfitLoss(trade)
         switch (filters.profitRange) {
-          case 'profit': return pl > 0
-          case 'loss': return pl < 0
-          default: return true
+          case 'profit':
+            return pl > 0
+          case 'loss':
+            return pl < 0
+          default:
+            return true
         }
       })
     }
@@ -105,10 +121,6 @@ function TradeHistory() {
 
   const handleFilterChange = (name: keyof FilterState, value: string) => {
     setFilters(prev => ({ ...prev, [name]: value }))
-  }
-
-  const formatDateTime = (date: string) => {
-    return format(new Date(date), 'MMM d, yyyy HH:mm')
   }
 
   if (loading) {
@@ -213,17 +225,34 @@ function TradeHistory() {
       </div>
 
       {/* Trade Table */}
-      <div className="bg-white shadow overflow-hidden sm:rounded-lg">
+      <div className="bg-white shadow rounded-lg overflow-hidden">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Entry Date</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Symbol</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Entry</th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Exit</th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">P/L</th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Date
+              </th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Symbol
+              </th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Type
+              </th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Entry Price
+              </th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Exit Price
+              </th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                P/L
+              </th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Status
+              </th>
+              <th scope="col" className="relative px-6 py-3">
+                <span className="sr-only">Actions</span>
+              </th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
@@ -231,49 +260,44 @@ function TradeHistory() {
               const profitLoss = calculateProfitLoss(trade)
               return (
                 <tr key={trade.id}>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {formatDateTime(trade.entry_date)}
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {new Date(trade.entry_date).toLocaleDateString()}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {trade.symbol}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm">
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                       trade.type === 'long' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                     }`}>
                       {trade.type}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-500">
-                    ${trade.entry_price.toFixed(2)}
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    ${trade.entry_price?.toFixed(2) || '-'}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-500">
-                    {trade.exit_price ? `$${trade.exit_price.toFixed(2)}` : '-'}
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    ${trade.exit_price?.toFixed(2) || '-'}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium">
-                    <span className={profitLoss >= 0 ? 'text-green-600' : 'text-red-600'}>
-                      {profitLoss >= 0 ? '+' : ''}${profitLoss.toFixed(2)}
+                  <td className="px-6 py-4 whitespace-nowrap text-sm">
+                    <span className={`${profitLoss > 0 ? 'text-green-600' : profitLoss < 0 ? 'text-red-600' : 'text-gray-500'}`}>
+                      ${profitLoss.toFixed(2)}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm">
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                      trade.status === 'open' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'
+                    }`}>
+                      {trade.status}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <Link
-                      to={`/trade/${trade.id}`}
-                      className="text-primary-600 hover:text-primary-900 mr-4"
+                      to={`/trades/${trade.id}`}
+                      className="text-primary-600 hover:text-primary-900"
                     >
                       Edit
                     </Link>
-                    <button
-                      onClick={() => {
-                        if (window.confirm('Are you sure you want to delete this trade?')) {
-                          db.deleteTrade(trade.id).then(() => {
-                            setTrades(trades.filter(t => t.id !== trade.id))
-                          })
-                        }
-                      }}
-                      className="text-red-600 hover:text-red-900"
-                    >
-                      Delete
-                    </button>
                   </td>
                 </tr>
               )

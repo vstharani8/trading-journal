@@ -116,11 +116,6 @@ export const db = {
     return [...new Set(data?.map(t => t.strategy) || [])]
   },
 
-  async setStrategies(strategies: string[]): Promise<void> {
-    // This is a placeholder since strategies are now derived from trades
-    return
-  },
-
   // User settings operations
   async getUserSettings(userId: string): Promise<UserSettings | null> {
     const { data, error } = await supabase

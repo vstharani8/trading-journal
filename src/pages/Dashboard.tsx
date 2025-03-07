@@ -56,47 +56,67 @@ function Dashboard() {
     }
   }
 
-  const calculateProfitLoss = (trade: Trade) => {
-    if (!trade.exit_price) return 0
-    const profitLoss = trade.type === 'long'
+  const calculateProfitLoss = (trade: Trade): number => {
+    if (!trade.exit_price || !trade.entry_price || !trade.position_size) return 0
+    return trade.type === 'long'
       ? (trade.exit_price - trade.entry_price) * trade.position_size
       : (trade.entry_price - trade.exit_price) * trade.position_size
-    return profitLoss - (trade.fees || 0)
+  }
+
+  const calculateTotalProfitLoss = (trades: Trade[]): number => {
+    return trades.reduce((total, trade) => total + calculateProfitLoss(trade), 0)
+  }
+
+  const calculateWinRate = (trades: Trade[]): number => {
+    const closedTrades = trades.filter(trade => trade.status === 'closed')
+    if (closedTrades.length === 0) return 0
+    const winningTrades = closedTrades.filter(trade => calculateProfitLoss(trade) > 0)
+    return (winningTrades.length / closedTrades.length) * 100
+  }
+
+  const calculateProfitFactor = (trades: Trade[]): number => {
+    const closedTrades = trades.filter(trade => trade.status === 'closed')
+    const grossProfit = closedTrades.reduce((total, trade) => {
+      const pl = calculateProfitLoss(trade)
+      return total + (pl > 0 ? pl : 0)
+    }, 0)
+    const grossLoss = Math.abs(closedTrades.reduce((total, trade) => {
+      const pl = calculateProfitLoss(trade)
+      return total + (pl < 0 ? pl : 0)
+    }, 0))
+    return grossLoss === 0 ? grossProfit : grossProfit / grossLoss
+  }
+
+  const calculateMaxDrawdown = (trades: Trade[]): number => {
+    let peak = 0
+    let maxDrawdown = 0
+    let runningTotal = 0
+
+    trades.forEach(trade => {
+      runningTotal += calculateProfitLoss(trade)
+      if (runningTotal > peak) {
+        peak = runningTotal
+      }
+      const drawdown = peak - runningTotal
+      if (drawdown > maxDrawdown) {
+        maxDrawdown = drawdown
+      }
+    })
+
+    return maxDrawdown
   }
 
   const calculateStatistics = (trades: Trade[]) => {
     const closedTrades = trades.filter(t => t.status === 'closed')
     if (closedTrades.length === 0) return
 
-    const profitLosses = closedTrades.map(calculateProfitLoss)
-    const winningTrades = profitLosses.filter(pl => pl > 0)
-    const losingTrades = profitLosses.filter(pl => pl < 0)
-
-    const totalProfitLoss = profitLosses.reduce((sum, pl) => sum + pl, 0)
-    const winRate = (winningTrades.length / closedTrades.length) * 100
+    const totalProfitLoss = calculateTotalProfitLoss(trades)
+    const winRate = calculateWinRate(trades)
     
-    const totalWins = winningTrades.reduce((sum, pl) => sum + pl, 0)
-    const totalLosses = Math.abs(losingTrades.reduce((sum, pl) => sum + pl, 0))
-    const profitFactor = totalLosses > 0 ? totalWins / totalLosses : 0
+    const profitFactor = calculateProfitFactor(trades)
 
     // Calculate max drawdown
-    let maxDrawdown = 0
-    let peak = 0
-    let balance = 0
-    
-    closedTrades
-      .sort((a, b) => new Date(a.exit_date!).getTime() - new Date(b.exit_date!).getTime())
-      .forEach(trade => {
-        const pl = calculateProfitLoss(trade)
-        balance += pl
-        if (balance > peak) {
-          peak = balance
-        }
-        const drawdown = peak - balance
-        if (drawdown > maxDrawdown) {
-          maxDrawdown = drawdown
-        }
-      })
+    let maxDrawdown = calculateMaxDrawdown(trades)
 
     setStatistics({
       totalProfitLoss,
