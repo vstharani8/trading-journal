@@ -13,6 +13,7 @@ interface Trade {
   takeProfit: number | null
   fees: number | null
   strategy: string | null
+  setupType: string[]
   notes: string
   screenshot: string | null
   status: 'open' | 'closed'
