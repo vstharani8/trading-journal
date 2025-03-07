@@ -21,11 +21,6 @@ type TradeFormData = {
   user_id: string
 }
 
-interface UserSettings {
-  totalCapital: number
-  riskPerTrade: number
-}
-
 const initialFormData: TradeFormData = {
   symbol: '',
   type: 'long',
@@ -41,7 +36,7 @@ const initialFormData: TradeFormData = {
   take_profit: null,
   screenshot: null,
   status: 'open',
-  user_id: '', // This will be set by the auth context
+  user_id: ''
 }
 
 function TradeForm() {
@@ -51,15 +46,10 @@ function TradeForm() {
   const [formData, setFormData] = useState<TradeFormData>(initialFormData)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [userSettings, setUserSettings] = useState<UserSettings>({
-    totalCapital: 0,
-    riskPerTrade: 1
-  })
 
   useEffect(() => {
     if (user?.id) {
       setFormData(prev => ({ ...prev, user_id: user.id }))
-      loadUserSettings()
     }
   }, [user])
 
@@ -68,20 +58,6 @@ function TradeForm() {
       loadTrade()
     }
   }, [id])
-
-  const loadUserSettings = async () => {
-    try {
-      const data = await db.getUserSettings(user?.id || '')
-      if (data) {
-        setUserSettings({
-          totalCapital: data.total_capital || 0,
-          riskPerTrade: data.risk_per_trade || 1
-        })
-      }
-    } catch (err) {
-      console.error('Error loading user settings:', err)
-    }
-  }
 
   const loadTrade = async () => {
     try {
@@ -102,13 +78,6 @@ function TradeForm() {
     }
   }
 
-  const calculateMaxQuantity = () => {
-    if (!formData.entry_price || !formData.stop_loss) return 0
-    const riskAmount = (userSettings.totalCapital * userSettings.riskPerTrade) / 100
-    const stopLossDistance = Math.abs(formData.entry_price - formData.stop_loss)
-    return riskAmount / stopLossDistance
-  }
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
@@ -117,8 +86,7 @@ function TradeForm() {
     try {
       const submitData = {
         ...formData,
-        entry_price: formData.entry_price || 0,
-        position_size: formData.quantity
+        entry_price: formData.entry_price || 0
       }
       
       if (id) {
@@ -143,21 +111,6 @@ function TradeForm() {
       : value
 
     setFormData(prev => ({ ...prev, [name]: numValue }))
-
-    // Update quantity when entry price changes
-    if (name === 'entry_price') {
-      const entryPrice = Number(value)
-      if (entryPrice > 0 && formData.quantity) {
-        const newQuantity = formData.quantity / entryPrice
-        setFormData(prev => ({ ...prev, quantity: newQuantity }))
-      }
-    }
-
-    // Update position size when stop loss changes
-    if (name === 'stop_loss' && formData.entry_price) {
-      const maxQty = calculateMaxQuantity()
-      setFormData(prev => ({ ...prev, quantity: maxQty }))
-    }
   }
 
   if (loading) {
