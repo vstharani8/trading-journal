@@ -90,6 +90,29 @@ function TradeHistory() {
     return ((trade.exit_price - trade.entry_price) / trade.entry_price) * 100
   }
 
+  const calculateRiskRewardRatio = (trade: Trade): number | null => {
+    // For long positions
+    if (trade.type === 'long') {
+      if (!trade.entry_price || !trade.stop_loss) return null;
+      const risk = trade.entry_price - trade.stop_loss;
+      const reward = trade.exit_price 
+        ? trade.exit_price - trade.entry_price 
+        : (trade.take_profit ? trade.take_profit - trade.entry_price : 0);
+      
+      return risk > 0 ? reward / risk : null;
+    }
+    // For short positions
+    else {
+      if (!trade.entry_price || !trade.stop_loss) return null;
+      const risk = trade.stop_loss - trade.entry_price;
+      const reward = trade.exit_price 
+        ? trade.entry_price - trade.exit_price 
+        : (trade.take_profit ? trade.entry_price - trade.take_profit : 0);
+      
+      return risk > 0 ? reward / risk : null;
+    }
+  }
+
   const applyFilters = () => {
     let filtered = [...trades]
 
@@ -303,6 +326,9 @@ function TradeHistory() {
                   P/L %
                 </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  R:R Ratio
+                </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Status
                 </th>
                 <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-[150px]">
@@ -316,6 +342,7 @@ function TradeHistory() {
                 const positionSize = calculatePositionSize(trade)
                 const totalValue = calculateTotalValue(trade)
                 const profitLossPercentage = calculateProfitLossPercentage(trade)
+                const riskRewardRatio = calculateRiskRewardRatio(trade)
                 console.log('Processing trade:', {
                   ...trade,
                   profitLoss,
@@ -363,6 +390,18 @@ function TradeHistory() {
                       <span className={`${profitLossPercentage > 0 ? 'text-green-600' : profitLossPercentage < 0 ? 'text-red-600' : 'text-gray-500'}`}>
                         {profitLossPercentage.toFixed(2)}%
                       </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      {(() => {
+                        const ratio = riskRewardRatio;
+                        return ratio !== null ? (
+                          <span className="text-blue-600">
+                            1:{parseFloat(ratio.toFixed(2))}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        );
+                      })()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
