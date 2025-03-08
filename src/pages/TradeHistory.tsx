@@ -40,6 +40,7 @@ function TradeHistory() {
     try {
       setLoading(true)
       const data = await db.getAllTrades()
+      console.log('Loaded trades:', data)
       setTrades(data)
       
       // Extract unique assets and strategies
@@ -77,6 +78,11 @@ function TradeHistory() {
   const calculatePositionSize = (trade: Trade): number => {
     if (!trade.entry_price || !userSettings?.total_capital) return 0
     return (trade.entry_price * trade.quantity) / userSettings.total_capital * 100
+  }
+
+  const calculateTotalValue = (trade: Trade): number => {
+    if (!trade.entry_price || !trade.quantity) return 0
+    return trade.entry_price * trade.quantity
   }
 
   const applyFilters = () => {
@@ -273,6 +279,12 @@ function TradeHistory() {
                 Entry Price
               </th>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Quantity
+              </th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Total Value
+              </th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Exit Price
               </th>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -293,6 +305,14 @@ function TradeHistory() {
             {filteredTrades.map((trade) => {
               const profitLoss = calculateProfitLoss(trade)
               const positionSize = calculatePositionSize(trade)
+              const totalValue = calculateTotalValue(trade)
+              console.log('Processing trade:', {
+                ...trade,
+                profitLoss,
+                positionSize,
+                totalValue,
+                calculatedValue: trade.entry_price ? trade.entry_price * trade.quantity : 0
+              })
               return (
                 <tr key={trade.id}>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -310,6 +330,12 @@ function TradeHistory() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     ${trade.entry_price?.toFixed(2) || '-'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {trade.quantity}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    ${totalValue > 0 ? totalValue.toFixed(2) : '-'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     ${trade.exit_price?.toFixed(2) || '-'}
