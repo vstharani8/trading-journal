@@ -142,6 +142,18 @@ function TradeHistory() {
     setFilters(prev => ({ ...prev, [name]: value }))
   }
 
+  const handleDelete = async (id: string) => {
+    if (!window.confirm('Are you sure you want to delete this trade?')) return
+
+    try {
+      await db.deleteTrade(id)
+      setTrades(trades.filter(trade => trade.id !== id))
+      setFilteredTrades(filteredTrades.filter(trade => trade.id !== id))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete trade')
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -318,12 +330,20 @@ function TradeHistory() {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <Link
-                      to={`/trade/${trade.id}`}
-                      className="text-primary-600 hover:text-primary-900"
-                    >
-                      Edit
-                    </Link>
+                    <div className="flex justify-end space-x-3">
+                      <Link
+                        to={`/trade/${trade.id}`}
+                        className="text-primary-600 hover:text-primary-900"
+                      >
+                        Edit
+                      </Link>
+                      <button
+                        onClick={() => handleDelete(trade.id)}
+                        className="text-red-600 hover:text-red-900"
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </td>
                 </tr>
               )
