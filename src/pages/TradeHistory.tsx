@@ -319,7 +319,7 @@ function TradeHistory() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <Link
-                      to={`/trades/${trade.id}`}
+                      to={`/trade/${trade.id}`}
                       className="text-primary-600 hover:text-primary-900"
                     >
                       Edit

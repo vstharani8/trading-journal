@@ -57,15 +57,15 @@ function Settings() {
       try {
         // Add a dummy trade with the new strategy to make it available
         await db.addTrade({
-          symbol: 'STRATEGY',
+          symbol: 'AAPL',
           type: 'long',
           entry_date: new Date().toISOString(),
           exit_date: null,
-          entry_price: 0,
+          entry_price: 150,
           exit_price: null,
           quantity: 0,
           strategy: trimmedStrategy,
-          notes: 'Strategy placeholder',
+          notes: 'Test trade',
           fees: 0,
           stop_loss: null,
           take_profit: null,

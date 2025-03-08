@@ -46,6 +46,7 @@ function TradeForm() {
   const [formData, setFormData] = useState<TradeFormData>(initialFormData)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
 
   useEffect(() => {
     if (user?.id) {
@@ -62,15 +63,28 @@ function TradeForm() {
   const loadTrade = async () => {
     try {
       setLoading(true)
+      setError(null)
       const trade = await db.getTrade(id!)
-      if (trade) {
-        const { id: _, created_at: __, updated_at: ___, ...tradeData } = trade
-        setFormData({
-          ...tradeData,
-          entry_price: tradeData.entry_price || null,
-          quantity: trade.quantity
-        })
+      if (!trade) {
+        throw new Error('Trade not found')
       }
+      setFormData({
+        symbol: trade.symbol,
+        type: trade.type,
+        entry_date: trade.entry_date.split('T')[0],
+        exit_date: trade.exit_date?.split('T')[0] || null,
+        entry_price: trade.entry_price,
+        exit_price: trade.exit_price,
+        quantity: trade.quantity,
+        strategy: trade.strategy,
+        notes: trade.notes || '',
+        fees: trade.fees,
+        stop_loss: trade.stop_loss,
+        take_profit: trade.take_profit,
+        screenshot: trade.screenshot,
+        status: trade.status,
+        user_id: trade.user_id
+      })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load trade')
     } finally {
@@ -80,49 +94,33 @@ function TradeForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setLoading(true)
-    setError(null)
-
     try {
+      setLoading(true)
+      setError(null)
+      setSuccess(null)
+
       const submitData = {
-        symbol: formData.symbol,
-        type: formData.type,
-        entry_date: formData.entry_date,
-        exit_date: formData.exit_date,
-        entry_price: formData.entry_price || 0,
-        exit_price: formData.exit_price,
-        quantity: formData.quantity,
-        strategy: formData.strategy,
-        notes: formData.notes,
-        fees: formData.fees,
-        stop_loss: formData.stop_loss,
-        take_profit: formData.take_profit,
-        screenshot: formData.screenshot,
-        status: formData.status,
-        user_id: formData.user_id
+        ...formData,
+        entry_date: new Date(formData.entry_date).toISOString(),
+        exit_date: formData.exit_date ? new Date(formData.exit_date).toISOString() : null
       }
-      
-      const now = new Date().toISOString()
-      
+
       if (id) {
-        await db.updateTrade({ 
-          ...submitData, 
+        const now = new Date().toISOString()
+        await db.updateTrade({
+          ...submitData,
           id,
           created_at: now,
           updated_at: now
         })
+        setSuccess('Trade updated successfully')
+        setTimeout(() => navigate('/trades'), 1500)
       } else {
-        try {
-          const result = await db.addTrade(submitData)
-          console.log('Trade submission result:', result)
-        } catch (submitError) {
-          console.error('Detailed submission error:', submitError)
-          throw submitError
-        }
+        await db.addTrade(submitData)
+        setSuccess('Trade created successfully')
+        setTimeout(() => navigate('/trades'), 1500)
       }
-      navigate('/')
     } catch (err) {
-      console.error('Full error details:', err)
       setError(err instanceof Error ? err.message : 'Failed to save trade')
     } finally {
       setLoading(false)
@@ -157,6 +155,12 @@ function TradeForm() {
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-6">
           <p className="text-red-600">{error}</p>
+        </div>
+      )}
+
+      {success && (
+        <div className="bg-green-50 border border-green-200 rounded-md p-4 mb-6">
+          <p className="text-green-600">{success}</p>
         </div>
       )}
 
@@ -396,7 +400,7 @@ function TradeForm() {
         <div className="flex justify-end space-x-3">
           <button
             type="button"
-            onClick={() => navigate('/')}
+            onClick={() => navigate('/trades')}
             className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
           >
             Cancel
