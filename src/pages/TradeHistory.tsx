@@ -206,236 +206,234 @@ function TradeHistory() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-semibold text-gray-900">Trade History</h1>
-        <Link
-          to="/trade/new"
-          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
-        >
-          New Trade
-        </Link>
-      </div>
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
+        <div className="flex justify-between items-center">
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+            Trade History
+          </h1>
+          <Link
+            to="/trade/new"
+            className="inline-flex items-center px-6 py-3 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+          >
+            + New Trade
+          </Link>
+        </div>
 
-      {/* Filters */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Date Range</label>
-            <select
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
-              value={filters.dateRange}
-              onChange={(e) => handleFilterChange('dateRange', e.target.value)}
-            >
-              <option value="all">All Time</option>
-              <option value="week">Last Week</option>
-              <option value="month">Last Month</option>
-              <option value="year">Last Year</option>
-            </select>
-          </div>
+        {/* Filters */}
+        <div className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-xl p-6 border border-white/20">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <svg className="h-5 w-5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+            </svg>
+            Filters
+          </h2>
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-700">Date Range</label>
+              <select
+                className="block w-full rounded-lg border-gray-300 bg-white/50 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm transition-all duration-200"
+                value={filters.dateRange}
+                onChange={(e) => handleFilterChange('dateRange', e.target.value)}
+              >
+                <option value="all">All Time</option>
+                <option value="week">Last Week</option>
+                <option value="month">Last Month</option>
+                <option value="year">Last Year</option>
+              </select>
+            </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Asset</label>
-            <select
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
-              value={filters.asset}
-              onChange={(e) => handleFilterChange('asset', e.target.value)}
-            >
-              <option value="all">All Assets</option>
-              {assets.map(asset => (
-                <option key={asset} value={asset}>{asset}</option>
-              ))}
-            </select>
-          </div>
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-700">Asset</label>
+              <select
+                className="block w-full rounded-lg border-gray-300 bg-white/50 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm transition-all duration-200"
+                value={filters.asset}
+                onChange={(e) => handleFilterChange('asset', e.target.value)}
+              >
+                <option value="all">All Assets</option>
+                {assets.map(asset => (
+                  <option key={asset} value={asset}>{asset}</option>
+                ))}
+              </select>
+            </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Strategy</label>
-            <select
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
-              value={filters.strategy}
-              onChange={(e) => handleFilterChange('strategy', e.target.value)}
-            >
-              <option value="all">All Strategies</option>
-              {strategies.map(strategy => (
-                <option key={strategy} value={strategy}>{strategy}</option>
-              ))}
-            </select>
-          </div>
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-700">Strategy</label>
+              <select
+                className="block w-full rounded-lg border-gray-300 bg-white/50 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm transition-all duration-200"
+                value={filters.strategy}
+                onChange={(e) => handleFilterChange('strategy', e.target.value)}
+              >
+                <option value="all">All Strategies</option>
+                {strategies.map(strategy => (
+                  <option key={strategy} value={strategy}>{strategy}</option>
+                ))}
+              </select>
+            </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Status</label>
-            <select
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
-              value={filters.status}
-              onChange={(e) => handleFilterChange('status', e.target.value)}
-            >
-              <option value="all">All Trades</option>
-              <option value="open">Open</option>
-              <option value="closed">Closed</option>
-            </select>
-          </div>
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-700">Status</label>
+              <select
+                className="block w-full rounded-lg border-gray-300 bg-white/50 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm transition-all duration-200"
+                value={filters.status}
+                onChange={(e) => handleFilterChange('status', e.target.value)}
+              >
+                <option value="all">All Trades</option>
+                <option value="open">Open</option>
+                <option value="closed">Closed</option>
+              </select>
+            </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Profit Range</label>
-            <select
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
-              value={filters.profitRange}
-              onChange={(e) => handleFilterChange('profitRange', e.target.value)}
-            >
-              <option value="all">All Trades</option>
-              <option value="profit">Profitable</option>
-              <option value="loss">Loss</option>
-            </select>
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-700">Profit Range</label>
+              <select
+                className="block w-full rounded-lg border-gray-300 bg-white/50 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm transition-all duration-200"
+                value={filters.profitRange}
+                onChange={(e) => handleFilterChange('profitRange', e.target.value)}
+              >
+                <option value="all">All Trades</option>
+                <option value="profit">Profitable</option>
+                <option value="loss">Loss</option>
+              </select>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Trade Table */}
-      <div className="bg-white shadow rounded-lg overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Date
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Symbol
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Type
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Entry Price
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Quantity
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Total Value
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Exit Price
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Position Size
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  P/L
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  P/L %
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  R:R Ratio
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
-                </th>
-                <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-[150px]">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {filteredTrades.map((trade) => {
-                const profitLoss = calculateProfitLoss(trade)
-                const positionSize = calculatePositionSize(trade)
-                const totalValue = calculateTotalValue(trade)
-                const profitLossPercentage = calculateProfitLossPercentage(trade)
-                const riskRewardRatio = calculateRiskRewardRatio(trade)
-                console.log('Processing trade:', {
-                  ...trade,
-                  profitLoss,
-                  positionSize,
-                  totalValue,
-                  profitLossPercentage,
-                  calculatedValue: trade.entry_price ? trade.entry_price * trade.quantity : 0
-                })
-                return (
-                  <tr key={trade.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => navigate(`/trade/${trade.id}`)}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {new Date(trade.entry_date).toLocaleDateString()}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {trade.symbol}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        trade.type === 'long' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                      }`}>
-                        {trade.type}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      ${trade.entry_price?.toFixed(2) || '-'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {trade.quantity}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      ${totalValue > 0 ? totalValue.toFixed(2) : '-'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      ${trade.exit_price?.toFixed(2) || '-'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {positionSize.toFixed(2)}%
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <span className={`${profitLoss > 0 ? 'text-green-600' : profitLoss < 0 ? 'text-red-600' : 'text-gray-500'}`}>
-                        ${profitLoss.toFixed(2)}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <span className={`${profitLossPercentage > 0 ? 'text-green-600' : profitLossPercentage < 0 ? 'text-red-600' : 'text-gray-500'}`}>
-                        {profitLossPercentage.toFixed(2)}%
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      {(() => {
-                        const ratio = riskRewardRatio;
-                        return ratio !== null ? (
-                          <span className="text-blue-600">
-                            1:{parseFloat(ratio.toFixed(2))}
-                          </span>
-                        ) : (
-                          <span className="text-gray-400">-</span>
-                        );
-                      })()}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        trade.status === 'open' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'
-                      }`}>
-                        {trade.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex justify-end gap-4">
-                        <Link
-                          to={`/trade/${trade.id}`}
-                          className="text-primary-600 hover:text-primary-900 px-3 py-1"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          Edit
-                        </Link>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDelete(trade.id);
-                          }}
-                          className="text-red-600 hover:text-red-900 px-3 py-1"
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+        {/* Trade Table */}
+        <div className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-xl border border-white/20 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200/50">
+              <thead>
+                <tr className="bg-gradient-to-r from-indigo-50 to-purple-50">
+                  {[
+                    'Date', 'Symbol', 'Type', 'Entry Price', 'Quantity', 'Total Value',
+                    'Exit Price', 'Position Size', 'P/L', 'P/L %', 'R:R Ratio', 'Status', 'Actions'
+                  ].map((header) => (
+                    <th
+                      key={header}
+                      scope="col"
+                      className={`px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider ${
+                        header === 'Actions' ? 'text-right w-[150px]' : ''
+                      }`}
+                    >
+                      {header}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="bg-white/50 divide-y divide-gray-200/50">
+                {filteredTrades.map((trade) => {
+                  const profitLoss = calculateProfitLoss(trade)
+                  const positionSize = calculatePositionSize(trade)
+                  const totalValue = calculateTotalValue(trade)
+                  const profitLossPercentage = calculateProfitLossPercentage(trade)
+                  const riskRewardRatio = calculateRiskRewardRatio(trade)
+                  
+                  return (
+                    <tr 
+                      key={trade.id} 
+                      className="hover:bg-indigo-50/50 transition-colors duration-200 cursor-pointer backdrop-blur-lg" 
+                      onClick={() => navigate(`/trade/${trade.id}`)}
+                    >
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        {new Date(trade.entry_date).toLocaleDateString()}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        {trade.symbol}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
+                          trade.type === 'long' 
+                            ? 'bg-gradient-to-r from-green-100 to-emerald-100 text-green-800' 
+                            : 'bg-gradient-to-r from-red-100 to-rose-100 text-red-800'
+                        }`}>
+                          {trade.type}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        ${trade.entry_price?.toFixed(2) || '-'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {trade.quantity}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        ${totalValue > 0 ? totalValue.toFixed(2) : '-'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        ${trade.exit_price?.toFixed(2) || '-'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {positionSize.toFixed(2)}%
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <span className={`${
+                          profitLoss > 0 
+                            ? 'text-green-600' 
+                            : profitLoss < 0 
+                              ? 'text-red-600' 
+                              : 'text-gray-500'
+                        }`}>
+                          ${profitLoss.toFixed(2)}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <span className={`${
+                          profitLossPercentage > 0 
+                            ? 'text-green-600' 
+                            : profitLossPercentage < 0 
+                              ? 'text-red-600' 
+                              : 'text-gray-500'
+                        }`}>
+                          {profitLossPercentage.toFixed(2)}%
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        {(() => {
+                          const ratio = riskRewardRatio;
+                          return ratio !== null ? (
+                            <span className="text-blue-600 font-medium">
+                              1:{parseFloat(ratio.toFixed(2))}
+                            </span>
+                          ) : (
+                            <span className="text-gray-400">-</span>
+                          );
+                        })()}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
+                          trade.status === 'open' 
+                            ? 'bg-blue-100 text-blue-800' 
+                            : 'bg-gray-100 text-gray-800'
+                        }`}>
+                          {trade.status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <div className="flex justify-end gap-4">
+                          <Link
+                            to={`/trade/${trade.id}`}
+                            className="text-indigo-600 hover:text-indigo-900 px-4 py-2 rounded-lg hover:bg-indigo-50/50 transition-all duration-200"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            Edit
+                          </Link>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDelete(trade.id);
+                            }}
+                            className="text-red-600 hover:text-red-900 px-4 py-2 rounded-lg hover:bg-red-50/50 transition-all duration-200"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>

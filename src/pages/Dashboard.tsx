@@ -1,340 +1,196 @@
-import { useEffect, useState } from 'react'
-import { db } from '../services/supabase'
-import type { Trade } from '../services/supabase'
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer
-} from 'recharts'
-import { format, parseISO, startOfMonth, endOfMonth, eachMonthOfInterval, subMonths, isWithinInterval } from 'date-fns'
+import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { db } from '../services/supabase';
+import type { Trade } from '../services/supabase';
 
-interface Statistics {
-  totalProfitLoss: number
-  winRate: number
-  avgRiskRewardRatio: number
-  maxDrawdown: number
-  bestTrade: {
-    symbol: string
-    profitPercentage: number
-  } | null
-  worstTrade: {
-    symbol: string
-    lossPercentage: number
-  } | null
+interface DashboardStats {
+  totalTrades: number;
+  winRate: number;
+  totalProfitLoss: number;
+  averageRR: number;
+  bestTrade: Trade | null;
+  worstTrade: Trade | null;
 }
 
-interface MonthlyData {
-  month: string
-  profitLoss: number
-  winRate: number
-}
-
-function Dashboard() {
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [statistics, setStatistics] = useState<Statistics>({
-    totalProfitLoss: 0,
+export default function Dashboard() {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [stats, setStats] = useState<DashboardStats>({
+    totalTrades: 0,
     winRate: 0,
-    avgRiskRewardRatio: 0,
-    maxDrawdown: 0,
+    totalProfitLoss: 0,
+    averageRR: 0,
     bestTrade: null,
-    worstTrade: null
-  })
-  const [monthlyData, setMonthlyData] = useState<MonthlyData[]>([])
+    worstTrade: null,
+  });
 
   useEffect(() => {
-    loadTrades()
-  }, [])
+    loadDashboardData();
+  }, []);
 
-  const loadTrades = async () => {
+  const loadDashboardData = async () => {
     try {
-      const data = await db.getAllTrades()
-      calculateStatistics(data)
-      calculateMonthlyData(data)
+      setLoading(true);
+      const trades = await db.getAllTrades();
+      
+      // Calculate dashboard statistics
+      const closedTrades = trades.filter(trade => trade.status === 'closed');
+      const profitableTrades = closedTrades.filter(trade => 
+        trade.exit_price && trade.entry_price && 
+        (trade.type === 'long' ? trade.exit_price > trade.entry_price : trade.exit_price < trade.entry_price)
+      );
+
+      const totalPL = closedTrades.reduce((sum, trade) => {
+        if (!trade.exit_price || !trade.entry_price) return sum;
+        const pl = trade.type === 'long'
+          ? (trade.exit_price - trade.entry_price) * trade.quantity
+          : (trade.entry_price - trade.exit_price) * trade.quantity;
+        return sum + pl;
+      }, 0);
+
+      const averageRR = closedTrades.reduce((sum, trade) => {
+        if (!trade.exit_price || !trade.entry_price || !trade.stop_loss) return sum;
+        const risk = trade.type === 'long'
+          ? trade.entry_price - trade.stop_loss
+          : trade.stop_loss - trade.entry_price;
+        const reward = trade.type === 'long'
+          ? trade.exit_price - trade.entry_price
+          : trade.entry_price - trade.exit_price;
+        return risk > 0 ? sum + (reward / risk) : sum;
+      }, 0) / (closedTrades.length || 1);
+
+      setStats({
+        totalTrades: trades.length,
+        winRate: closedTrades.length ? (profitableTrades.length / closedTrades.length) * 100 : 0,
+        totalProfitLoss: totalPL,
+        averageRR: averageRR,
+        bestTrade: profitableTrades.reduce((best, trade) => {
+          if (!best) return trade;
+          const currentPL = trade.exit_price && trade.entry_price
+            ? ((trade.exit_price - trade.entry_price) / trade.entry_price) * 100
+            : 0;
+          const bestPL = best.exit_price && best.entry_price
+            ? ((best.exit_price - best.entry_price) / best.entry_price) * 100
+            : 0;
+          return currentPL > bestPL ? trade : best;
+        }, null as Trade | null),
+        worstTrade: closedTrades.reduce((worst, trade) => {
+          if (!worst) return trade;
+          const currentPL = trade.exit_price && trade.entry_price
+            ? ((trade.exit_price - trade.entry_price) / trade.entry_price) * 100
+            : 0;
+          const worstPL = worst.exit_price && worst.entry_price
+            ? ((worst.exit_price - worst.entry_price) / worst.entry_price) * 100
+            : 0;
+          return currentPL < worstPL ? trade : worst;
+        }, null as Trade | null),
+      });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load trades')
+      setError(err instanceof Error ? err.message : 'Failed to load dashboard data');
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
-
-  const calculateProfitLoss = (trade: Trade): number => {
-    if (!trade.exit_price || !trade.entry_price) return 0
-    return trade.type === 'long'
-      ? (trade.exit_price - trade.entry_price) * trade.quantity
-      : (trade.entry_price - trade.exit_price) * trade.quantity
-  }
-
-  const calculateTotalProfitLoss = (trades: Trade[]): number => {
-    return trades.reduce((total, trade) => total + calculateProfitLoss(trade), 0)
-  }
-
-  const calculateWinRate = (trades: Trade[]): number => {
-    const closedTrades = trades.filter(trade => trade.status === 'closed')
-    if (closedTrades.length === 0) return 0
-    const winningTrades = closedTrades.filter(trade => calculateProfitLoss(trade) > 0)
-    return (winningTrades.length / closedTrades.length) * 100
-  }
-
-  const calculateRiskRewardRatio = (trade: Trade): number | null => {
-    // For long positions
-    if (trade.type === 'long') {
-      if (!trade.entry_price || !trade.stop_loss) return null;
-      const risk = trade.entry_price - trade.stop_loss;
-      const reward = trade.exit_price 
-        ? trade.exit_price - trade.entry_price 
-        : (trade.take_profit ? trade.take_profit - trade.entry_price : 0);
-      
-      return risk > 0 ? reward / risk : null;
-    }
-    // For short positions
-    else {
-      if (!trade.entry_price || !trade.stop_loss) return null;
-      const risk = trade.stop_loss - trade.entry_price;
-      const reward = trade.exit_price 
-        ? trade.entry_price - trade.exit_price 
-        : (trade.take_profit ? trade.entry_price - trade.take_profit : 0);
-      
-      return risk > 0 ? reward / risk : null;
-    }
-  }
-
-  const calculateAverageRiskRewardRatio = (trades: Trade[]): number => {
-    const ratios = trades
-      .map(trade => calculateRiskRewardRatio(trade))
-      .filter((ratio): ratio is number => ratio !== null);
-    
-    if (ratios.length === 0) return 0;
-    const sum = ratios.reduce((acc, ratio) => acc + ratio, 0);
-    return sum / ratios.length;
-  }
-
-  const calculateMaxDrawdown = (trades: Trade[]): number => {
-    let peak = 0
-    let maxDrawdown = 0
-    let runningTotal = 0
-
-    trades.forEach(trade => {
-      runningTotal += calculateProfitLoss(trade)
-      if (runningTotal > peak) {
-        peak = runningTotal
-      }
-      const drawdown = peak - runningTotal
-      if (drawdown > maxDrawdown) {
-        maxDrawdown = drawdown
-      }
-    })
-
-    return maxDrawdown
-  }
-
-  const calculateProfitLossPercentage = (trade: Trade): number => {
-    if (!trade.exit_price || !trade.entry_price) return 0;
-    return ((trade.exit_price - trade.entry_price) / trade.entry_price) * 100;
-  }
-
-  const findBestAndWorstTrades = (trades: Trade[]): { bestTrade: Statistics['bestTrade'], worstTrade: Statistics['worstTrade'] } => {
-    const closedTrades = trades.filter(t => t.status === 'closed' && t.exit_price && t.entry_price);
-    if (closedTrades.length === 0) return { bestTrade: null, worstTrade: null };
-
-    const tradesWithPerformance = closedTrades.map(trade => ({
-      symbol: trade.symbol,
-      percentage: calculateProfitLossPercentage(trade)
-    }));
-
-    const bestTrade = tradesWithPerformance.reduce((best, current) => 
-      current.percentage > (best?.percentage || -Infinity) ? current : best
-    , null as { symbol: string, percentage: number } | null);
-
-    const worstTrade = tradesWithPerformance.reduce((worst, current) => 
-      current.percentage < (worst?.percentage || Infinity) ? current : worst
-    , null as { symbol: string, percentage: number } | null);
-
-    return {
-      bestTrade: bestTrade ? {
-        symbol: bestTrade.symbol,
-        profitPercentage: bestTrade.percentage
-      } : null,
-      worstTrade: worstTrade ? {
-        symbol: worstTrade.symbol,
-        lossPercentage: worstTrade.percentage
-      } : null
-    };
-  }
-
-  const calculateStatistics = (trades: Trade[]) => {
-    const closedTrades = trades.filter(t => t.status === 'closed')
-    if (closedTrades.length === 0) return
-
-    const totalProfitLoss = calculateTotalProfitLoss(trades)
-    const winRate = calculateWinRate(trades)
-    const avgRiskRewardRatio = calculateAverageRiskRewardRatio(trades)
-    const maxDrawdown = calculateMaxDrawdown(trades)
-    const { bestTrade, worstTrade } = findBestAndWorstTrades(trades)
-
-    setStatistics({
-      totalProfitLoss,
-      winRate,
-      avgRiskRewardRatio,
-      maxDrawdown,
-      bestTrade,
-      worstTrade
-    })
-  }
-
-  const calculateMonthlyData = (trades: Trade[]) => {
-    const last6Months = eachMonthOfInterval({
-      start: subMonths(new Date(), 5),
-      end: new Date()
-    })
-
-    const monthlyStats = last6Months.map(month => {
-      const monthTrades = trades.filter(trade => {
-        if (!trade.exit_date) return false
-        const tradeDate = parseISO(trade.exit_date)
-        return isWithinInterval(tradeDate, {
-          start: startOfMonth(month),
-          end: endOfMonth(month)
-        })
-      })
-
-      const profitLoss = monthTrades.reduce((sum, trade) => sum + calculateProfitLoss(trade), 0)
-      const closedTrades = monthTrades.filter(t => t.status === 'closed')
-      const winRate = closedTrades.length > 0
-        ? (closedTrades.filter(t => calculateProfitLoss(t) > 0).length / closedTrades.length) * 100
-        : 0
-
-      return {
-        month: format(month, 'MMM yyyy'),
-        profitLoss,
-        winRate
-      }
-    })
-
-    setMonthlyData(monthlyStats)
-  }
+  };
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+      <div className="flex justify-center items-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
       </div>
-    )
+    );
   }
 
   if (error) {
     return (
-      <div className="bg-red-50 border border-red-200 rounded-md p-4">
-        <p className="text-red-600">{error}</p>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <p className="text-sm text-red-600">{error}</p>
+        </div>
       </div>
-    )
+    );
   }
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-semibold text-gray-900">Trading Dashboard</h1>
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+        <div className="flex justify-between items-center">
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+            Dashboard
+          </h1>
+          <Link
+            to="/trade/new"
+            className="inline-flex items-center px-6 py-3 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200"
+          >
+            + New Trade
+          </Link>
+        </div>
 
-      {/* Statistics Cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-sm font-medium text-gray-500">Total Profit/Loss</h3>
-          <p className={`mt-2 text-2xl font-semibold ${
-            statistics.totalProfitLoss >= 0 ? 'text-green-600' : 'text-red-600'
-          }`}>
-            ${statistics.totalProfitLoss.toFixed(2)}
-          </p>
-        </div>
-        <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-sm font-medium text-gray-500">Win Rate</h3>
-          <p className="mt-2 text-2xl font-semibold text-gray-900">
-            {statistics.winRate.toFixed(1)}%
-          </p>
-        </div>
-        <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-sm font-medium text-gray-500">Avg R:R Ratio</h3>
-          <p className="mt-2 text-2xl font-semibold text-gray-900">
-            1:{parseFloat(statistics.avgRiskRewardRatio.toFixed(2))}
-          </p>
-        </div>
-        <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-sm font-medium text-gray-500">Max Drawdown</h3>
-          <p className="mt-2 text-2xl font-semibold text-red-600">
-            ${statistics.maxDrawdown.toFixed(2)}
-          </p>
-        </div>
-      </div>
+        {/* Stats Grid */}
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-xl p-6 border border-white/20">
+            <h3 className="text-lg font-medium text-gray-900">Total Trades</h3>
+            <p className="mt-2 text-3xl font-bold text-indigo-600">{stats.totalTrades}</p>
+          </div>
 
-      {/* Monthly Performance Chart */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-lg font-medium text-gray-900 mb-4">Monthly Performance</h2>
-        <div className="h-80">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={monthlyData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="month" />
-              <YAxis yAxisId="left" />
-              <YAxis yAxisId="right" orientation="right" />
-              <Tooltip />
-              <Legend />
-              <Line
-                yAxisId="left"
-                type="monotone"
-                dataKey="profitLoss"
-                stroke="#8884d8"
-                name="Profit/Loss"
-              />
-              <Line
-                yAxisId="right"
-                type="monotone"
-                dataKey="winRate"
-                stroke="#82ca9d"
-                name="Win Rate (%)"
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
+          <div className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-xl p-6 border border-white/20">
+            <h3 className="text-lg font-medium text-gray-900">Win Rate</h3>
+            <p className="mt-2 text-3xl font-bold text-indigo-600">
+              {stats.winRate.toFixed(1)}%
+            </p>
+          </div>
 
-      {/* Best and Worst Trades */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-sm font-medium text-gray-500">Best Trade</h3>
-          {statistics.bestTrade ? (
-            <div className="mt-2">
-              <p className="text-2xl font-semibold text-green-600">
-                {statistics.bestTrade.symbol}
-              </p>
-              <p className="text-lg text-green-600">
-                +{parseFloat(statistics.bestTrade.profitPercentage.toFixed(2))}%
-              </p>
-            </div>
-          ) : (
-            <p className="mt-2 text-gray-500">No closed trades</p>
-          )}
+          <div className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-xl p-6 border border-white/20">
+            <h3 className="text-lg font-medium text-gray-900">Total P/L</h3>
+            <p className={`mt-2 text-3xl font-bold ${
+              stats.totalProfitLoss > 0 ? 'text-green-600' : 'text-red-600'
+            }`}>
+              ${stats.totalProfitLoss.toFixed(2)}
+            </p>
+          </div>
+
+          <div className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-xl p-6 border border-white/20">
+            <h3 className="text-lg font-medium text-gray-900">Avg R:R Ratio</h3>
+            <p className="mt-2 text-3xl font-bold text-blue-600">
+              1:{stats.averageRR.toFixed(2)}
+            </p>
+          </div>
         </div>
-        <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-sm font-medium text-gray-500">Worst Trade</h3>
-          {statistics.worstTrade ? (
-            <div className="mt-2">
-              <p className="text-2xl font-semibold text-red-600">
-                {statistics.worstTrade.symbol}
-              </p>
-              <p className="text-lg text-red-600">
-                {parseFloat(statistics.worstTrade.lossPercentage.toFixed(2))}%
-              </p>
-            </div>
-          ) : (
-            <p className="mt-2 text-gray-500">No closed trades</p>
-          )}
+
+        {/* Best and Worst Trades */}
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+          <div className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-xl p-6 border border-white/20">
+            <h3 className="text-lg font-medium text-gray-900">Best Trade</h3>
+            {stats.bestTrade ? (
+              <div className="mt-2 space-y-2">
+                <p className="text-sm text-gray-600">{stats.bestTrade.symbol}</p>
+                <p className="text-2xl font-bold text-green-600">
+                  {stats.bestTrade.exit_price && stats.bestTrade.entry_price
+                    ? `+${(((stats.bestTrade.exit_price - stats.bestTrade.entry_price) / stats.bestTrade.entry_price) * 100).toFixed(2)}%`
+                    : 'N/A'}
+                </p>
+              </div>
+            ) : (
+              <p className="mt-2 text-sm text-gray-500">No trades yet</p>
+            )}
+          </div>
+
+          <div className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-xl p-6 border border-white/20">
+            <h3 className="text-lg font-medium text-gray-900">Worst Trade</h3>
+            {stats.worstTrade ? (
+              <div className="mt-2 space-y-2">
+                <p className="text-sm text-gray-600">{stats.worstTrade.symbol}</p>
+                <p className="text-2xl font-bold text-red-600">
+                  {stats.worstTrade.exit_price && stats.worstTrade.entry_price
+                    ? `${(((stats.worstTrade.exit_price - stats.worstTrade.entry_price) / stats.worstTrade.entry_price) * 100).toFixed(2)}%`
+                    : 'N/A'}
+                </p>
+              </div>
+            ) : (
+              <p className="mt-2 text-sm text-gray-500">No trades yet</p>
+            )}
+          </div>
         </div>
       </div>
     </div>
-  )
-}
-
-export default Dashboard 
+  );
+} 
