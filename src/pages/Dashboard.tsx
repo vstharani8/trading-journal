@@ -33,6 +33,7 @@ interface DashboardStats {
 interface MonthlyData {
   month: string;
   profitLoss: number;
+  profitLossPercentage: number;
   winRate: number;
   tradeCount: number;
   averageReturn: number;
@@ -86,10 +87,14 @@ export default function Dashboard() {
   };
 
   const calculateMonthlyData = (trades: Trade[]) => {
+    console.log('Initial capital:', userSettings?.total_capital);
+    
     const last6Months = eachMonthOfInterval({
       start: subMonths(new Date(), 5),
       end: new Date()
     });
+
+    console.log('Last 6 months:', last6Months);
 
     const monthlyStats = last6Months.map(month => {
       const monthTrades = trades.filter(trade => {
@@ -101,6 +106,8 @@ export default function Dashboard() {
         });
       });
 
+      console.log(`Trades for ${format(month, 'MMM yyyy')}:`, monthTrades.length);
+
       const profitLoss = monthTrades.reduce((sum, trade) => {
         if (!trade.exit_price || !trade.entry_price) return sum;
         const pl = trade.type === 'long'
@@ -108,6 +115,14 @@ export default function Dashboard() {
           : (trade.entry_price - trade.exit_price) * trade.quantity;
         return sum + pl - (trade.fees || 0);
       }, 0);
+
+      console.log(`Profit/Loss for ${format(month, 'MMM yyyy')}:`, profitLoss);
+
+      // Ensure we have a valid initial capital value
+      const initialCapital = userSettings?.total_capital || 10000; // Default to 10000 if not set
+      const profitLossPercentage = (profitLoss / initialCapital) * 100;
+
+      console.log(`P/L % for ${format(month, 'MMM yyyy')}:`, profitLossPercentage);
 
       const closedTrades = monthTrades.filter(t => t.status === 'closed');
       const winRate = closedTrades.length > 0
@@ -126,14 +141,23 @@ export default function Dashboard() {
       return {
         month: format(month, 'MMM yyyy'),
         profitLoss,
+        profitLossPercentage,
         winRate,
         tradeCount: closedTrades.length,
         averageReturn
       };
     });
 
+    console.log('Monthly stats:', monthlyStats);
     setMonthlyData(monthlyStats);
   };
+
+  useEffect(() => {
+    // Recalculate monthly data when userSettings changes
+    if (trades.length > 0) {
+      calculateMonthlyData(trades);
+    }
+  }, [userSettings, trades]);
 
   const calculateStrategyPerformance = (trades: Trade[]) => {
     const strategies = new Map<string, StrategyPerformance>();
@@ -323,11 +347,16 @@ export default function Dashboard() {
 
           <div className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-xl p-6 border border-white/20">
             <h3 className="text-lg font-medium text-gray-900">Total P/L</h3>
-            <p className={`mt-2 text-3xl font-bold ${
-              stats.totalProfitLoss > 0 ? 'text-green-600' : 'text-red-600'
-            }`}>
-              ${stats.totalProfitLoss.toFixed(2)}
-            </p>
+            <div className={`mt-2 ${stats.totalProfitLoss > 0 ? 'text-green-600' : 'text-red-600'}`}>
+              <p className="text-3xl font-bold">
+                ${stats.totalProfitLoss.toFixed(2)}
+              </p>
+              <p className="text-lg font-semibold">
+                {userSettings?.total_capital
+                  ? `${((stats.totalProfitLoss / userSettings.total_capital) * 100).toFixed(2)}%`
+                  : '0.00%'}
+              </p>
+            </div>
           </div>
 
           <div className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-xl p-6 border border-white/20">
@@ -357,45 +386,69 @@ export default function Dashboard() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Profit/Loss Bar Chart */}
             <div className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={monthlyData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                  <XAxis 
-                    dataKey="month" 
-                    stroke="#6B7280"
-                    fontSize={12}
-                  />
-                  <YAxis 
-                    stroke="#6B7280"
-                    fontSize={12}
-                    tickFormatter={(value) => `$${value}`}
-                  />
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: 'rgba(255, 255, 255, 0.8)',
-                      borderRadius: '0.5rem',
-                      border: 'none',
-                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-                    }}
-                    formatter={(value: number) => [`$${value.toFixed(2)}`, 'Profit/Loss']}
-                  />
-                  <Legend />
-                  <ReferenceLine y={0} stroke="#CBD5E1" />
-                  <Bar
-                    dataKey="profitLoss"
-                    name="Profit/Loss"
-                    fill="#6366F1"
-                    radius={[4, 4, 0, 0]}
-                  >
-                    {monthlyData.map((entry, index) => (
-                      <Cell 
-                        key={`cell-${index}`}
-                        fill={entry.profitLoss >= 0 ? '#10B981' : '#EF4444'}
-                      />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
+              {monthlyData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={monthlyData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                    <XAxis 
+                      dataKey="month" 
+                      stroke="#6B7280"
+                      fontSize={12}
+                    />
+                    <YAxis 
+                      stroke="#6B7280"
+                      fontSize={12}
+                      tickFormatter={(value) => `${value.toFixed(1)}%`}
+                      domain={['auto', 'auto']}
+                    />
+                    <Tooltip 
+                      content={({ active, payload }) => {
+                        if (!active || !payload || !payload[0]) return null;
+                        
+                        const data = payload[0].payload;
+                        const isNegative = data.profitLoss < 0;
+                        const color = isNegative ? '#EF4444' : '#10B981';
+                        
+                        return (
+                          <div
+                            style={{
+                              backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                              padding: '8px 12px',
+                              borderRadius: '0.5rem',
+                              border: 'none',
+                              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                            }}
+                          >
+                            <div style={{ color, fontSize: '1.125rem', fontWeight: 'bold' }}>
+                              <div>{data.profitLossPercentage.toFixed(2)}%</div>
+                              <div>${data.profitLoss.toFixed(2)}</div>
+                            </div>
+                          </div>
+                        );
+                      }}
+                    />
+                    <Legend />
+                    <ReferenceLine y={0} stroke="#CBD5E1" />
+                    <Bar
+                      dataKey="profitLossPercentage"
+                      name="Monthly Return"
+                      fill="#6366F1"
+                      radius={[4, 4, 0, 0]}
+                    >
+                      {monthlyData.map((entry, index) => (
+                        <Cell 
+                          key={`cell-${index}`}
+                          fill={entry.profitLossPercentage >= 0 ? '#10B981' : '#EF4444'}
+                        />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-full">
+                  <p className="text-gray-500">No data available for the selected period</p>
+                </div>
+              )}
             </div>
 
             {/* Win Rate and Trade Count Line Chart */}
@@ -463,29 +516,44 @@ export default function Dashboard() {
             <div className="lg:col-span-2 grid grid-cols-2 sm:grid-cols-4 gap-4">
               <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl p-4">
                 <h3 className="text-sm font-medium text-gray-500">Best Month</h3>
-                <p className="mt-2 text-2xl font-semibold text-green-600">
-                  ${Math.max(...monthlyData.map(d => d.profitLoss)).toFixed(2)}
-                </p>
+                <div className="mt-2">
+                  <p className="text-2xl font-semibold text-green-600">
+                    {Math.max(...monthlyData.map(d => d.profitLossPercentage)).toFixed(2)}%
+                  </p>
+                  <p className="text-lg font-medium text-green-600">
+                    ${monthlyData.find(d => d.profitLossPercentage === Math.max(...monthlyData.map(d => d.profitLossPercentage)))?.profitLoss.toFixed(2)}
+                  </p>
+                </div>
                 <p className="mt-1 text-sm text-gray-500">
-                  {monthlyData.find(d => d.profitLoss === Math.max(...monthlyData.map(d => d.profitLoss)))?.month}
+                  {monthlyData.find(d => d.profitLossPercentage === Math.max(...monthlyData.map(d => d.profitLossPercentage)))?.month}
                 </p>
               </div>
 
               <div className="bg-gradient-to-br from-rose-50 to-pink-50 rounded-xl p-4">
                 <h3 className="text-sm font-medium text-gray-500">Worst Month</h3>
-                <p className="mt-2 text-2xl font-semibold text-red-600">
-                  ${Math.min(...monthlyData.map(d => d.profitLoss)).toFixed(2)}
-                </p>
+                <div className="mt-2">
+                  <p className="text-2xl font-semibold text-red-600">
+                    {Math.min(...monthlyData.map(d => d.profitLossPercentage)).toFixed(2)}%
+                  </p>
+                  <p className="text-lg font-medium text-red-600">
+                    ${monthlyData.find(d => d.profitLossPercentage === Math.min(...monthlyData.map(d => d.profitLossPercentage)))?.profitLoss.toFixed(2)}
+                  </p>
+                </div>
                 <p className="mt-1 text-sm text-gray-500">
-                  {monthlyData.find(d => d.profitLoss === Math.min(...monthlyData.map(d => d.profitLoss)))?.month}
+                  {monthlyData.find(d => d.profitLossPercentage === Math.min(...monthlyData.map(d => d.profitLossPercentage)))?.month}
                 </p>
               </div>
 
               <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl p-4">
                 <h3 className="text-sm font-medium text-gray-500">Average Monthly Return</h3>
-                <p className="mt-2 text-2xl font-semibold text-gray-900">
-                  ${(monthlyData.reduce((sum, d) => sum + d.profitLoss, 0) / monthlyData.length).toFixed(2)}
-                </p>
+                <div className="mt-2">
+                  <p className="text-2xl font-semibold text-gray-900">
+                    {(monthlyData.reduce((sum, d) => sum + d.profitLossPercentage, 0) / monthlyData.length).toFixed(2)}%
+                  </p>
+                  <p className="text-lg font-medium text-gray-900">
+                    ${(monthlyData.reduce((sum, d) => sum + d.profitLoss, 0) / monthlyData.length).toFixed(2)}
+                  </p>
+                </div>
                 <p className="mt-1 text-sm text-gray-500">
                   per month
                 </p>
