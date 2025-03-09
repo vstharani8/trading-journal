@@ -2,6 +2,17 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { db } from '../services/supabase';
 import type { Trade } from '../services/supabase';
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer
+} from 'recharts';
+import { format, parseISO, startOfMonth, endOfMonth, eachMonthOfInterval, subMonths, isWithinInterval } from 'date-fns';
 
 interface DashboardStats {
   totalTrades: number;
@@ -12,9 +23,16 @@ interface DashboardStats {
   worstTrade: Trade | null;
 }
 
+interface MonthlyData {
+  month: string;
+  profitLoss: number;
+  winRate: number;
+}
+
 export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [monthlyData, setMonthlyData] = useState<MonthlyData[]>([]);
   const [stats, setStats] = useState<DashboardStats>({
     totalTrades: 0,
     winRate: 0,
@@ -27,6 +45,50 @@ export default function Dashboard() {
   useEffect(() => {
     loadDashboardData();
   }, []);
+
+  const calculateMonthlyData = (trades: Trade[]) => {
+    const last6Months = eachMonthOfInterval({
+      start: subMonths(new Date(), 5),
+      end: new Date()
+    });
+
+    const monthlyStats = last6Months.map(month => {
+      const monthTrades = trades.filter(trade => {
+        if (!trade.exit_date) return false;
+        const tradeDate = parseISO(trade.exit_date);
+        return isWithinInterval(tradeDate, {
+          start: startOfMonth(month),
+          end: endOfMonth(month)
+        });
+      });
+
+      const profitLoss = monthTrades.reduce((sum, trade) => {
+        if (!trade.exit_price || !trade.entry_price) return sum;
+        const pl = trade.type === 'long'
+          ? (trade.exit_price - trade.entry_price) * trade.quantity
+          : (trade.entry_price - trade.exit_price) * trade.quantity;
+        return sum + pl;
+      }, 0);
+
+      const closedTrades = monthTrades.filter(t => t.status === 'closed');
+      const winRate = closedTrades.length > 0
+        ? (closedTrades.filter(t => {
+            if (!t.exit_price || !t.entry_price) return false;
+            return t.type === 'long' 
+              ? t.exit_price > t.entry_price 
+              : t.exit_price < t.entry_price;
+          }).length / closedTrades.length) * 100
+        : 0;
+
+      return {
+        month: format(month, 'MMM yyyy'),
+        profitLoss,
+        winRate
+      };
+    });
+
+    setMonthlyData(monthlyStats);
+  };
 
   const loadDashboardData = async () => {
     try {
@@ -85,6 +147,9 @@ export default function Dashboard() {
           return currentPL < worstPL ? trade : worst;
         }, null as Trade | null),
       });
+
+      // Calculate monthly performance data
+      calculateMonthlyData(trades);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load dashboard data');
     } finally {
@@ -153,6 +218,69 @@ export default function Dashboard() {
             <p className="mt-2 text-3xl font-bold text-blue-600">
               1:{stats.averageRR.toFixed(2)}
             </p>
+          </div>
+        </div>
+
+        {/* Monthly Performance Chart */}
+        <div className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-xl p-6 border border-white/20">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Monthly Performance</h2>
+          <div className="h-80">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={monthlyData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                <XAxis 
+                  dataKey="month" 
+                  stroke="#6B7280"
+                  fontSize={12}
+                />
+                <YAxis 
+                  yAxisId="left" 
+                  stroke="#6B7280"
+                  fontSize={12}
+                  tickFormatter={(value) => `$${value}`}
+                />
+                <YAxis 
+                  yAxisId="right" 
+                  orientation="right" 
+                  stroke="#6B7280"
+                  fontSize={12}
+                  tickFormatter={(value) => `${value}%`}
+                />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                    borderRadius: '0.5rem',
+                    border: 'none',
+                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                  }}
+                  formatter={(value: number, name: string) => {
+                    if (name === 'Profit/Loss') return [`$${value.toFixed(2)}`, name];
+                    return [`${value.toFixed(1)}%`, name];
+                  }}
+                />
+                <Legend />
+                <Line
+                  yAxisId="left"
+                  type="monotone"
+                  dataKey="profitLoss"
+                  name="Profit/Loss"
+                  stroke="#6366F1"
+                  strokeWidth={2}
+                  dot={{ fill: '#6366F1', strokeWidth: 2 }}
+                  activeDot={{ r: 6 }}
+                />
+                <Line
+                  yAxisId="right"
+                  type="monotone"
+                  dataKey="winRate"
+                  name="Win Rate"
+                  stroke="#10B981"
+                  strokeWidth={2}
+                  dot={{ fill: '#10B981', strokeWidth: 2 }}
+                  activeDot={{ r: 6 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
           </div>
         </div>
 
