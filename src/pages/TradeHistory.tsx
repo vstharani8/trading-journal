@@ -114,6 +114,90 @@ function TradeHistory() {
     }
   }
 
+  const calculateRiskPerTrade = (trade: Trade): number => {
+    if (!trade.entry_price || !trade.stop_loss || !userSettings?.total_capital) return 0;
+    const riskAmount = Math.abs(trade.entry_price - trade.stop_loss) * trade.quantity;
+    return (riskAmount / userSettings.total_capital) * 100;
+  }
+
+  const calculateTotalExposure = (trades: Trade[]): number => {
+    if (!userSettings?.total_capital) return 0;
+    const openTrades = trades.filter(trade => trade.status === 'open');
+    const totalExposure = openTrades.reduce((sum, trade) => {
+      return sum + ((trade.entry_price || 0) * trade.quantity);
+    }, 0);
+    return (totalExposure / userSettings.total_capital) * 100;
+  }
+
+  const calculateStopLossEffectiveness = (trades: Trade[]): {
+    totalStopLosses: number;
+    hitRate: number;
+    averageLoss: number;
+  } => {
+    const closedTrades = trades.filter(trade => 
+      trade.status === 'closed' && 
+      trade.stop_loss !== null && 
+      trade.stop_loss !== undefined
+    );
+    
+    const stoppedOutTrades = closedTrades.filter(trade => {
+      if (!trade.stop_loss) return false;
+      const exitPrice = trade.exit_price || 0;
+      return trade.type === 'long' 
+        ? exitPrice <= trade.stop_loss
+        : exitPrice >= trade.stop_loss;
+    });
+
+    const totalStopLosses = stoppedOutTrades.length;
+    const hitRate = closedTrades.length > 0 
+      ? (totalStopLosses / closedTrades.length) * 100 
+      : 0;
+
+    const averageLoss = stoppedOutTrades.length > 0
+      ? stoppedOutTrades.reduce((sum, trade) => sum + calculateProfitLoss(trade), 0) / stoppedOutTrades.length
+      : 0;
+
+    return {
+      totalStopLosses,
+      hitRate,
+      averageLoss
+    };
+  }
+
+  const getPositionSizeRecommendation = (trade: Trade): {
+    recommended: number;
+    maxSize: number;
+    warning?: string;
+  } => {
+    if (!userSettings?.total_capital || !trade.entry_price || !trade.stop_loss) {
+      return { recommended: 0, maxSize: 0, warning: 'Missing required data for calculation' };
+    }
+
+    const riskPercentage = 2; // Default 2% risk per trade
+    const maxRiskPercentage = 5; // Maximum 5% risk per trade
+
+    const priceDistance = Math.abs(trade.entry_price - trade.stop_loss);
+    const maxLoss = (userSettings.total_capital * (riskPercentage / 100));
+    const recommendedShares = Math.floor(maxLoss / priceDistance);
+    
+    const maxLossAtMaxRisk = (userSettings.total_capital * (maxRiskPercentage / 100));
+    const maxShares = Math.floor(maxLossAtMaxRisk / priceDistance);
+
+    const currentRisk = calculateRiskPerTrade(trade);
+    let warning;
+    if (currentRisk > maxRiskPercentage) {
+      warning = `Current position exceeds maximum recommended risk of ${maxRiskPercentage}%`;
+    } else if (currentRisk > riskPercentage) {
+      warning = `Current position exceeds standard risk parameter of ${riskPercentage}%`;
+    }
+
+    return {
+      recommended: recommendedShares,
+      maxSize: maxShares,
+      warning
+    };
+  }
+
   const applyFilters = () => {
     let filtered = [...trades]
 
@@ -316,6 +400,91 @@ function TradeHistory() {
                 <option value="profit">Profitable</option>
                 <option value="loss">Loss</option>
               </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Risk Analysis Section */}
+        <div className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-xl p-6 border border-white/20">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <svg className="h-5 w-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            Risk Analysis
+          </h2>
+          
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            {/* Total Market Exposure */}
+            <div className="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-xl p-4 border border-purple-100">
+              <h3 className="text-sm font-medium text-gray-500">Total Market Exposure</h3>
+              <p className="mt-2 text-2xl font-semibold text-gray-900">
+                {calculateTotalExposure(trades).toFixed(2)}%
+              </p>
+              <p className="mt-1 text-sm text-gray-500">
+                of total capital
+              </p>
+            </div>
+
+            {/* Stop Loss Analysis */}
+            <div className="bg-gradient-to-br from-rose-50 to-pink-50 rounded-xl p-4 border border-rose-100">
+              <h3 className="text-sm font-medium text-gray-500">Stop Loss Effectiveness</h3>
+              {(() => {
+                const slAnalysis = calculateStopLossEffectiveness(trades);
+                return (
+                  <>
+                    <p className="mt-2 text-2xl font-semibold text-gray-900">
+                      {slAnalysis.hitRate.toFixed(1)}%
+                    </p>
+                    <p className="mt-1 text-sm text-gray-500">
+                      Hit rate ({slAnalysis.totalStopLosses} stops)
+                    </p>
+                    <p className="mt-1 text-sm text-red-600">
+                      Avg. Loss: ${Math.abs(slAnalysis.averageLoss).toFixed(2)}
+                    </p>
+                  </>
+                );
+              })()}
+            </div>
+
+            {/* Average Risk per Trade */}
+            <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl p-4 border border-blue-100">
+              <h3 className="text-sm font-medium text-gray-500">Average Risk per Trade</h3>
+              {(() => {
+                const avgRisk = trades
+                  .map(trade => calculateRiskPerTrade(trade))
+                  .reduce((sum, risk) => sum + risk, 0) / trades.length || 0;
+                return (
+                  <>
+                    <p className="mt-2 text-2xl font-semibold text-gray-900">
+                      {avgRisk.toFixed(2)}%
+                    </p>
+                    <p className="mt-1 text-sm text-gray-500">
+                      of total capital per trade
+                    </p>
+                  </>
+                );
+              })()}
+            </div>
+
+            {/* Position Size Recommendations */}
+            <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl p-4 border border-emerald-100">
+              <h3 className="text-sm font-medium text-gray-500">Position Sizing</h3>
+              <div className="mt-2">
+                {trades.filter(t => t.status === 'open').map(trade => {
+                  const recommendation = getPositionSizeRecommendation(trade);
+                  return (
+                    <div key={trade.id} className="mb-2">
+                      <p className="text-sm font-medium">{trade.symbol}</p>
+                      {recommendation.warning && (
+                        <p className="text-xs text-red-600">{recommendation.warning}</p>
+                      )}
+                      <p className="text-xs text-gray-500">
+                        Recommended: {recommendation.recommended} shares
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
         </div>
