@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { db } from '../services/supabase'
 import type { Trade, UserSettings } from '../services/supabase'
 
@@ -26,6 +26,7 @@ function TradeHistory() {
     status: 'all',
     profitRange: 'all'
   })
+  const navigate = useNavigate()
 
   useEffect(() => {
     loadTrades()
@@ -352,7 +353,7 @@ function TradeHistory() {
                   calculatedValue: trade.entry_price ? trade.entry_price * trade.quantity : 0
                 })
                 return (
-                  <tr key={trade.id}>
+                  <tr key={trade.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => navigate(`/trade/${trade.id}`)}>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {new Date(trade.entry_date).toLocaleDateString()}
                     </td>
@@ -415,11 +416,15 @@ function TradeHistory() {
                         <Link
                           to={`/trade/${trade.id}`}
                           className="text-primary-600 hover:text-primary-900 px-3 py-1"
+                          onClick={(e) => e.stopPropagation()}
                         >
                           Edit
                         </Link>
                         <button
-                          onClick={() => handleDelete(trade.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDelete(trade.id);
+                          }}
                           className="text-red-600 hover:text-red-900 px-3 py-1"
                         >
                           Delete
