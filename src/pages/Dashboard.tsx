@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { db } from '../services/supabase';
-import type { Trade, UserSettings } from '../services/supabase';
+import type { Trade as BaseTradeType, UserSettings } from '../services/supabase';
 import EquityCurve from '../components/EquityCurve';
 import {
   LineChart,
@@ -12,7 +12,6 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
   ResponsiveContainer,
   ReferenceLine,
   Cell,
@@ -20,6 +19,12 @@ import {
   Pie
 } from 'recharts';
 import { format, parseISO, startOfMonth, endOfMonth, eachMonthOfInterval, subMonths, isWithinInterval } from 'date-fns';
+
+interface Trade extends BaseTradeType {
+  proficiency?: string | null;
+  growth_areas?: string | null;
+  exit_trigger?: string | null;
+}
 
 interface DashboardStats {
   totalTrades: number;
@@ -53,6 +58,13 @@ interface StrategyPerformance {
   grossLoss: number;
 }
 
+interface TradeAnalytics {
+  name: string;
+  count: number;
+  profitLoss: number;
+  winRate: number;
+}
+
 export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -68,6 +80,9 @@ export default function Dashboard() {
     worstTrade: null
   });
   const [strategyPerformance, setStrategyPerformance] = useState<StrategyPerformance[]>([]);
+  const [proficiencyAnalytics, setProficiencyAnalytics] = useState<TradeAnalytics[]>([]);
+  const [growthAreasAnalytics, setGrowthAreasAnalytics] = useState<TradeAnalytics[]>([]);
+  const [exitTriggerAnalytics, setExitTriggerAnalytics] = useState<TradeAnalytics[]>([]);
 
   useEffect(() => {
     loadDashboardData();
@@ -159,72 +174,36 @@ export default function Dashboard() {
     }
   }, [userSettings, trades]);
 
-  const calculateStrategyPerformance = (trades: Trade[]) => {
-    const strategies = new Map<string, StrategyPerformance>();
+  const calculateTradeAnalytics = (trades: Trade[], field: 'proficiency' | 'growth_areas' | 'exit_trigger') => {
+    const analytics = new Map<string, TradeAnalytics>();
+    
+    trades
+      .filter(trade => trade.exit_price !== null && trade.entry_price !== null && trade[field])
+      .forEach(trade => {
+        const value = trade[field] || 'Unknown';
+        const existing = analytics.get(value) || {
+          name: value,
+          count: 0,
+          profitLoss: 0,
+          winRate: 0
+        };
 
-    trades.forEach(trade => {
-      if (!trade.strategy) return;
+        const pl = trade.type === 'long'
+          ? (trade.exit_price! - trade.entry_price!) * trade.quantity
+          : (trade.entry_price! - trade.exit_price!) * trade.quantity;
 
-      const existing = strategies.get(trade.strategy) || {
-        name: trade.strategy,
-        totalTrades: 0,
-        winRate: 0,
-        profitLoss: 0,
-        averageReturn: 0,
-        averageRR: 0,
-        profitFactor: 0,
-        totalWins: 0,
-        totalLosses: 0,
-        grossProfit: 0,
-        grossLoss: 0
-      };
+        const isWin = pl > 0;
 
-      if (trade.status !== 'closed') return;
-
-      const pl = trade.exit_price && trade.entry_price
-        ? (trade.type === 'long'
-            ? trade.exit_price - trade.entry_price
-            : trade.entry_price - trade.exit_price) * trade.quantity - (trade.fees || 0)
-        : 0;
-
-      const isWin = pl > 0;
-      const rr = trade.exit_price && trade.entry_price && trade.stop_loss
-        ? Math.abs(
-            trade.type === 'long'
-              ? (trade.exit_price - trade.entry_price) / (trade.entry_price - trade.stop_loss)
-              : (trade.entry_price - trade.exit_price) / (trade.stop_loss - trade.entry_price)
-          )
-        : 0;
-
-      strategies.set(trade.strategy, {
-        ...existing,
-        totalTrades: existing.totalTrades + 1,
-        profitLoss: existing.profitLoss + pl,
-        totalWins: existing.totalWins + (isWin ? 1 : 0),
-        totalLosses: existing.totalLosses + (isWin ? 0 : 1),
-        grossProfit: existing.grossProfit + (pl > 0 ? pl : 0),
-        grossLoss: existing.grossLoss + (pl < 0 ? Math.abs(pl) : 0),
-        averageRR: existing.averageRR + (rr || 0)
+        analytics.set(value, {
+          ...existing,
+          count: existing.count + 1,
+          profitLoss: existing.profitLoss + pl,
+          winRate: ((existing.winRate * existing.count) + (isWin ? 100 : 0)) / (existing.count + 1)
+        });
       });
-    });
 
-    const performanceData = Array.from(strategies.values()).map(strategy => ({
-      name: strategy.name,
-      totalTrades: strategy.totalTrades,
-      winRate: (strategy.totalWins / strategy.totalTrades) * 100,
-      profitLoss: strategy.profitLoss,
-      averageReturn: strategy.profitLoss / strategy.totalTrades,
-      averageRR: strategy.averageRR / strategy.totalTrades,
-      profitFactor: strategy.grossLoss === 0 ? strategy.grossProfit : strategy.grossProfit / strategy.grossLoss,
-      totalWins: strategy.totalWins,
-      totalLosses: strategy.totalLosses,
-      grossProfit: strategy.grossProfit,
-      grossLoss: strategy.grossLoss
-    }));
-
-    // Sort by profit/loss
-    performanceData.sort((a, b) => b.profitLoss - a.profitLoss);
-    setStrategyPerformance(performanceData);
+    return Array.from(analytics.values())
+      .sort((a, b) => b.count - a.count);
   };
 
   const loadDashboardData = async () => {
@@ -288,9 +267,63 @@ export default function Dashboard() {
 
       // Calculate monthly performance data
       calculateMonthlyData(allTrades);
+
+      // Calculate strategy performance data
+      const strategyMap = new Map<string, StrategyPerformance>();
       
-      // Calculate strategy performance
-      calculateStrategyPerformance(allTrades);
+      allTrades
+        .filter(trade => trade.exit_price !== null && trade.entry_price !== null && trade.strategy)
+        .forEach(trade => {
+          const strategy = trade.strategy || 'Unknown';
+          const existing = strategyMap.get(strategy) || {
+            name: strategy,
+            totalTrades: 0,
+            winRate: 0,
+            profitLoss: 0,
+            averageReturn: 0,
+            averageRR: 0,
+            profitFactor: 0,
+            totalWins: 0,
+            totalLosses: 0,
+            grossProfit: 0,
+            grossLoss: 0
+          };
+
+          const pl = trade.type === 'long'
+            ? (trade.exit_price! - trade.entry_price!) * trade.quantity
+            : (trade.entry_price! - trade.exit_price!) * trade.quantity;
+
+          const isWin = pl > 0;
+
+          strategyMap.set(strategy, {
+            ...existing,
+            totalTrades: existing.totalTrades + 1,
+            profitLoss: existing.profitLoss + pl,
+            totalWins: existing.totalWins + (isWin ? 1 : 0),
+            totalLosses: existing.totalLosses + (isWin ? 0 : 1),
+            grossProfit: existing.grossProfit + (pl > 0 ? pl : 0),
+            grossLoss: existing.grossLoss + (pl < 0 ? Math.abs(pl) : 0)
+          });
+        });
+
+      // Calculate derived metrics for each strategy
+      const strategyData = Array.from(strategyMap.values()).map(strategy => ({
+        ...strategy,
+        winRate: (strategy.totalWins / strategy.totalTrades) * 100,
+        averageReturn: strategy.profitLoss / strategy.totalTrades,
+        profitFactor: strategy.grossLoss === 0 ? strategy.grossProfit : strategy.grossProfit / strategy.grossLoss
+      }));
+
+      // Sort by total profit/loss
+      strategyData.sort((a, b) => b.profitLoss - a.profitLoss);
+      
+      setStrategyPerformance(strategyData);
+
+      // Calculate analytics for new fields
+      setProficiencyAnalytics(calculateTradeAnalytics(allTrades, 'proficiency'));
+      setGrowthAreasAnalytics(calculateTradeAnalytics(allTrades, 'growth_areas'));
+      setExitTriggerAnalytics(calculateTradeAnalytics(allTrades, 'exit_trigger'));
+
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load dashboard data');
     } finally {
@@ -388,47 +421,38 @@ export default function Dashboard() {
             <div className="h-80">
               {monthlyData.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={monthlyData}>
+                  <BarChart
+                    data={monthlyData}
+                    margin={{
+                      top: 5,
+                      right: 30,
+                      left: 20,
+                      bottom: 5,
+                    }}
+                  >
                     <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                    <XAxis 
-                      dataKey="month" 
-                      stroke="#6B7280"
-                      fontSize={12}
+                    <XAxis
+                      dataKey="month"
+                      tick={{ fontSize: 12 }}
+                      tickLine={false}
+                      axisLine={false}
                     />
-                    <YAxis 
-                      stroke="#6B7280"
-                      fontSize={12}
-                      tickFormatter={(value) => `${value.toFixed(1)}%`}
-                      domain={['auto', 'auto']}
+                    <YAxis
+                      tickFormatter={(value) => `${value}%`}
+                      tick={{ fontSize: 12 }}
+                      tickLine={false}
+                      axisLine={false}
                     />
-                    <Tooltip 
-                      content={({ active, payload }) => {
-                        if (!active || !payload || !payload[0]) return null;
-                        
-                        const data = payload[0].payload;
-                        const isNegative = data.profitLoss < 0;
-                        const color = isNegative ? '#EF4444' : '#10B981';
-                        
-                        return (
-                          <div
-                            style={{
-                              backgroundColor: 'rgba(255, 255, 255, 0.8)',
-                              padding: '8px 12px',
-                              borderRadius: '0.5rem',
-                              border: 'none',
-                              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-                            }}
-                          >
-                            <div style={{ color, fontSize: '1.125rem', fontWeight: 'bold' }}>
-                              <div>{data.profitLossPercentage.toFixed(2)}%</div>
-                              <div>${data.profitLoss.toFixed(2)}</div>
-                            </div>
-                          </div>
-                        );
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                        borderRadius: '0.5rem',
+                        border: 'none',
+                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
                       }}
+                      formatter={(value: number) => [`${value.toFixed(2)}%`, 'Monthly Return']}
                     />
-                    <Legend />
-                    <ReferenceLine y={0} stroke="#CBD5E1" />
+                    <ReferenceLine y={0} stroke="#E5E7EB" />
                     <Bar
                       dataKey="profitLossPercentage"
                       name="Monthly Return"
@@ -453,109 +477,106 @@ export default function Dashboard() {
 
             {/* Win Rate and Trade Count Line Chart */}
             <div className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={monthlyData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                  <XAxis 
-                    dataKey="month" 
-                    stroke="#6B7280"
-                    fontSize={12}
-                  />
-                  <YAxis 
-                    yAxisId="left"
-                    stroke="#6B7280"
-                    fontSize={12}
-                    tickFormatter={(value) => `${value}%`}
-                  />
-                  <YAxis 
-                    yAxisId="right"
-                    orientation="right"
-                    stroke="#6B7280"
-                    fontSize={12}
-                    tickFormatter={(value) => String(Math.round(value))}
-                  />
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: 'rgba(255, 255, 255, 0.8)',
-                      borderRadius: '0.5rem',
-                      border: 'none',
-                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+              {monthlyData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart
+                    data={monthlyData}
+                    margin={{
+                      top: 5,
+                      right: 30,
+                      left: 20,
+                      bottom: 5,
                     }}
-                    formatter={(value: number, name: string) => {
-                      if (name === 'Win Rate') return [`${value.toFixed(1)}%`, name];
-                      if (name === 'Trade Count') return [Math.round(value).toString(), name];
-                      return [value.toString(), name];
-                    }}
-                  />
-                  <Legend />
-                  <Line
-                    yAxisId="left"
-                    type="monotone"
-                    dataKey="winRate"
-                    name="Win Rate"
-                    stroke="#6366F1"
-                    strokeWidth={2}
-                    dot={{ fill: '#6366F1', strokeWidth: 2 }}
-                    activeDot={{ r: 6 }}
-                  />
-                  <Line
-                    yAxisId="right"
-                    type="monotone"
-                    dataKey="tradeCount"
-                    name="Trade Count"
-                    stroke="#10B981"
-                    strokeWidth={2}
-                    dot={{ fill: '#10B981', strokeWidth: 2 }}
-                    activeDot={{ r: 6 }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                    <XAxis
+                      dataKey="month"
+                      tick={{ fontSize: 12 }}
+                      tickLine={false}
+                      axisLine={false}
+                    />
+                    <YAxis
+                      yAxisId="left"
+                      tickFormatter={(value) => `${value}%`}
+                      tick={{ fontSize: 12 }}
+                      tickLine={false}
+                      axisLine={false}
+                    />
+                    <YAxis
+                      yAxisId="right"
+                      orientation="right"
+                      tick={{ fontSize: 12 }}
+                      tickLine={false}
+                      axisLine={false}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                        borderRadius: '0.5rem',
+                        border: 'none',
+                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                      }}
+                      formatter={(value: number, name: string) => [
+                        name === 'Win Rate' ? `${value.toFixed(1)}%` : value,
+                        name
+                      ]}
+                    />
+                    <Line
+                      yAxisId="left"
+                      type="monotone"
+                      dataKey="winRate"
+                      name="Win Rate"
+                      stroke="#6366F1"
+                      strokeWidth={2}
+                      dot={{ fill: '#6366F1', strokeWidth: 2 }}
+                    />
+                    <Line
+                      yAxisId="right"
+                      type="monotone"
+                      dataKey="tradeCount"
+                      name="Trade Count"
+                      stroke="#10B981"
+                      strokeWidth={2}
+                      dot={{ fill: '#10B981', strokeWidth: 2 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-full">
+                  <p className="text-gray-500">No data available for the selected period</p>
+                </div>
+              )}
             </div>
 
-            {/* Monthly Statistics Grid */}
-            <div className="lg:col-span-2 grid grid-cols-2 sm:grid-cols-4 gap-4">
+            {/* Monthly Statistics */}
+            <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl p-4">
+                <h3 className="text-sm font-medium text-gray-500">Average Win Rate</h3>
+                <p className="mt-2 text-2xl font-semibold text-gray-900">
+                  {(monthlyData.reduce((sum, d) => sum + d.winRate, 0) / monthlyData.length).toFixed(1)}%
+                </p>
+                <p className="mt-1 text-sm text-gray-500">
+                  over the period
+                </p>
+              </div>
+
+              <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-4">
+                <h3 className="text-sm font-medium text-gray-500">Total Trades</h3>
+                <p className="mt-2 text-2xl font-semibold text-gray-900">
+                  {monthlyData.reduce((sum, d) => sum + d.tradeCount, 0)}
+                </p>
+                <p className="mt-1 text-sm text-gray-500">
+                  in last 6 months
+                </p>
+              </div>
+
+              <div className="bg-gradient-to-br from-blue-50 to-sky-50 rounded-xl p-4">
                 <h3 className="text-sm font-medium text-gray-500">Best Month</h3>
-                <div className="mt-2">
-                  <p className="text-2xl font-semibold text-green-600">
-                    {Math.max(...monthlyData.map(d => d.profitLossPercentage)).toFixed(2)}%
-                  </p>
-                  <p className="text-lg font-medium text-green-600">
-                    ${monthlyData.find(d => d.profitLossPercentage === Math.max(...monthlyData.map(d => d.profitLossPercentage)))?.profitLoss.toFixed(2)}
-                  </p>
-                </div>
-                <p className="mt-1 text-sm text-gray-500">
-                  {monthlyData.find(d => d.profitLossPercentage === Math.max(...monthlyData.map(d => d.profitLossPercentage)))?.month}
+                <p className="mt-2 text-2xl font-semibold text-gray-900">
+                  {monthlyData.reduce((best, d) => Math.max(best, d.profitLossPercentage), -Infinity).toFixed(2)}%
                 </p>
-              </div>
-
-              <div className="bg-gradient-to-br from-rose-50 to-pink-50 rounded-xl p-4">
-                <h3 className="text-sm font-medium text-gray-500">Worst Month</h3>
-                <div className="mt-2">
-                  <p className="text-2xl font-semibold text-red-600">
-                    {Math.min(...monthlyData.map(d => d.profitLossPercentage)).toFixed(2)}%
-                  </p>
-                  <p className="text-lg font-medium text-red-600">
-                    ${monthlyData.find(d => d.profitLossPercentage === Math.min(...monthlyData.map(d => d.profitLossPercentage)))?.profitLoss.toFixed(2)}
-                  </p>
-                </div>
                 <p className="mt-1 text-sm text-gray-500">
-                  {monthlyData.find(d => d.profitLossPercentage === Math.min(...monthlyData.map(d => d.profitLossPercentage)))?.month}
-                </p>
-              </div>
-
-              <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl p-4">
-                <h3 className="text-sm font-medium text-gray-500">Average Monthly Return</h3>
-                <div className="mt-2">
-                  <p className="text-2xl font-semibold text-gray-900">
-                    {(monthlyData.reduce((sum, d) => sum + d.profitLossPercentage, 0) / monthlyData.length).toFixed(2)}%
-                  </p>
-                  <p className="text-lg font-medium text-gray-900">
-                    ${(monthlyData.reduce((sum, d) => sum + d.profitLoss, 0) / monthlyData.length).toFixed(2)}
-                  </p>
-                </div>
-                <p className="mt-1 text-sm text-gray-500">
-                  per month
+                  return
                 </p>
               </div>
 
@@ -575,9 +596,9 @@ export default function Dashboard() {
         {/* Strategy Performance */}
         <div className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-xl p-6 border border-white/20">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Strategy Performance</h2>
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Strategy Bar Chart */}
-            <div className="lg:col-span-2 h-80">
+            <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
                   data={strategyPerformance}
@@ -641,54 +662,112 @@ export default function Dashboard() {
                 </PieChart>
               </ResponsiveContainer>
             </div>
+          </div>
+        </div>
 
-            {/* Strategy Statistics Grid */}
-            <div className="lg:col-span-3">
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead>
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Strategy</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Trades</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Win Rate</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Profit/Loss</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Avg Return</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Avg R:R</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Profit Factor</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white/50 divide-y divide-gray-200">
-                    {strategyPerformance.map((strategy) => (
-                      <tr key={strategy.name} className="hover:bg-indigo-50/50">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          {strategy.name}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {strategy.totalTrades}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {strategy.winRate.toFixed(1)}%
-                        </td>
-                        <td className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${
-                          strategy.profitLoss >= 0 ? 'text-green-600' : 'text-red-600'
-                        }`}>
-                          ${strategy.profitLoss.toFixed(2)}
-                        </td>
-                        <td className={`px-6 py-4 whitespace-nowrap text-sm ${
-                          strategy.averageReturn >= 0 ? 'text-green-600' : 'text-red-600'
-                        }`}>
-                          ${strategy.averageReturn.toFixed(2)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {strategy.averageRR.toFixed(2)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {strategy.profitFactor.toFixed(2)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+        {/* Trade Analysis */}
+        <div className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-xl p-6 border border-white/20">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Trade Analysis</h2>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Proficiency Analysis */}
+            <div>
+              <h3 className="text-md font-medium text-gray-700 mb-2">Proficiency Distribution</h3>
+              <div className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={proficiencyAnalytics}
+                      dataKey="count"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={80}
+                      fill="#6366F1"
+                      label={(entry) => `${entry.name} (${entry.value})`}
+                    >
+                      {proficiencyAnalytics.map((_entry, index) => (
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={`hsl(${index * (360 / proficiencyAnalytics.length)}, 70%, 60%)`}
+                        />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      formatter={(value: number, name: string) => [
+                        `${value} trades`,
+                        name
+                      ]}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            {/* Growth Areas Analysis */}
+            <div>
+              <h3 className="text-md font-medium text-gray-700 mb-2">Growth Areas Distribution</h3>
+              <div className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={growthAreasAnalytics}
+                      dataKey="count"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={80}
+                      fill="#6366F1"
+                      label={(entry) => `${entry.name} (${entry.value})`}
+                    >
+                      {growthAreasAnalytics.map((_entry, index) => (
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={`hsl(${index * (360 / growthAreasAnalytics.length)}, 70%, 60%)`}
+                        />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      formatter={(value: number, name: string) => [
+                        `${value} trades`,
+                        name
+                      ]}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            {/* Exit Trigger Analysis */}
+            <div>
+              <h3 className="text-md font-medium text-gray-700 mb-2">Exit Trigger Distribution</h3>
+              <div className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={exitTriggerAnalytics}
+                      dataKey="count"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={80}
+                      fill="#6366F1"
+                      label={(entry) => `${entry.name} (${entry.value})`}
+                    >
+                      {exitTriggerAnalytics.map((_entry, index) => (
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={`hsl(${index * (360 / exitTriggerAnalytics.length)}, 70%, 60%)`}
+                        />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      formatter={(value: number, name: string) => [
+                        `${value} trades`,
+                        name
+                      ]}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
               </div>
             </div>
           </div>
