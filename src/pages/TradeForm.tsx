@@ -140,285 +140,263 @@ function TradeForm() {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+      <div className="flex justify-center items-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
       </div>
     )
   }
 
   return (
-    <div className="max-w-2xl mx-auto">
-      <h2 className="text-2xl font-bold text-gray-900 mb-6">
-        {id ? 'Edit Trade' : 'New Trade'}
-      </h2>
-
-      {error && (
-        <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-6">
-          <p className="text-red-600">{error}</p>
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+        <div className="flex justify-between items-center">
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+            {id ? 'Edit Trade' : 'New Trade'}
+          </h1>
         </div>
-      )}
 
-      {success && (
-        <div className="bg-green-50 border border-green-200 rounded-md p-4 mb-6">
-          <p className="text-green-600">{success}</p>
-        </div>
-      )}
-
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-          <div>
-            <label htmlFor="symbol" className="block text-sm font-medium text-gray-700">
-              Symbol
-            </label>
-            <input
-              type="text"
-              name="symbol"
-              id="symbol"
-              required
-              value={formData.symbol}
-              onChange={handleChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
-            />
+        {error && (
+          <div className="bg-red-50/80 backdrop-blur-lg border border-red-200 rounded-xl p-4">
+            <p className="text-red-600">{error}</p>
           </div>
+        )}
 
-          <div>
-            <label htmlFor="type" className="block text-sm font-medium text-gray-700">
-              Type
-            </label>
-            <select
-              name="type"
-              id="type"
-              required
-              value={formData.type}
-              onChange={handleChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
-            >
-              <option value="long">Long</option>
-              <option value="short">Short</option>
-            </select>
+        {success && (
+          <div className="bg-green-50/80 backdrop-blur-lg border border-green-200 rounded-xl p-4">
+            <p className="text-green-600">{success}</p>
           </div>
+        )}
 
-          <div>
-            <label htmlFor="entry_date" className="block text-sm font-medium text-gray-700">
-              Entry Date
-            </label>
-            <input
-              type="date"
-              name="entry_date"
-              id="entry_date"
-              required
-              value={formData.entry_date}
-              onChange={handleChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="exit_date" className="block text-sm font-medium text-gray-700">
-              Exit Date
-            </label>
-            <input
-              type="date"
-              name="exit_date"
-              id="exit_date"
-              value={formData.exit_date || ''}
-              onChange={handleChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="entry_price" className="block text-sm font-medium text-gray-700">
-              Entry Price
-            </label>
-            <div className="mt-1 relative rounded-md shadow-sm">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <span className="text-gray-500 sm:text-sm">$</span>
-              </div>
+        <form onSubmit={handleSubmit} className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-xl p-8 border border-white/20 space-y-8">
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+            <div>
+              <label htmlFor="symbol" className="block text-sm font-medium text-gray-700">
+                Symbol
+              </label>
               <input
-                type="number"
-                name="entry_price"
-                id="entry_price"
+                type="text"
+                name="symbol"
+                id="symbol"
                 required
-                step="0.01"
-                value={formData.entry_price || ''}
+                value={formData.symbol}
                 onChange={handleChange}
-                className="pl-7 mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                className="mt-2 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
               />
             </div>
-          </div>
 
-          <div>
-            <label htmlFor="exit_price" className="block text-sm font-medium text-gray-700">
-              Exit Price
-            </label>
-            <div className="mt-1 relative rounded-md shadow-sm">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <span className="text-gray-500 sm:text-sm">$</span>
+            <div>
+              <label htmlFor="type" className="block text-sm font-medium text-gray-700">
+                Type
+              </label>
+              <select
+                name="type"
+                id="type"
+                required
+                value={formData.type}
+                onChange={handleChange}
+                className="mt-2 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+              >
+                <option value="long">Long</option>
+                <option value="short">Short</option>
+              </select>
+            </div>
+
+            <div>
+              <label htmlFor="entry_date" className="block text-sm font-medium text-gray-700">
+                Entry Date
+              </label>
+              <input
+                type="date"
+                name="entry_date"
+                id="entry_date"
+                required
+                value={formData.entry_date}
+                onChange={handleChange}
+                className="mt-2 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="exit_date" className="block text-sm font-medium text-gray-700">
+                Exit Date
+              </label>
+              <input
+                type="date"
+                name="exit_date"
+                id="exit_date"
+                value={formData.exit_date || ''}
+                onChange={handleChange}
+                className="mt-2 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="entry_price" className="block text-sm font-medium text-gray-700">
+                Entry Price
+              </label>
+              <div className="mt-2 relative rounded-lg shadow-sm">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <span className="text-gray-500 sm:text-sm">$</span>
+                </div>
+                <input
+                  type="number"
+                  name="entry_price"
+                  id="entry_price"
+                  required
+                  step="0.01"
+                  value={formData.entry_price || ''}
+                  onChange={handleChange}
+                  className="pl-7 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                />
               </div>
+            </div>
+
+            <div>
+              <label htmlFor="exit_price" className="block text-sm font-medium text-gray-700">
+                Exit Price
+              </label>
+              <div className="mt-2 relative rounded-lg shadow-sm">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <span className="text-gray-500 sm:text-sm">$</span>
+                </div>
+                <input
+                  type="number"
+                  name="exit_price"
+                  id="exit_price"
+                  step="0.01"
+                  value={formData.exit_price || ''}
+                  onChange={handleChange}
+                  className="pl-7 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label htmlFor="quantity" className="block text-sm font-medium text-gray-700">
+                Quantity
+              </label>
               <input
                 type="number"
-                name="exit_price"
-                id="exit_price"
-                step="0.01"
-                value={formData.exit_price || ''}
+                name="quantity"
+                id="quantity"
+                required
+                min="0"
+                step="1"
+                value={formData.quantity}
                 onChange={handleChange}
-                className="pl-7 mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                className="mt-2 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
               />
             </div>
-          </div>
 
-          <div>
-            <label htmlFor="quantity" className="block text-sm font-medium text-gray-700">
-              Quantity
-            </label>
-            <input
-              type="number"
-              name="quantity"
-              id="quantity"
-              required
-              min="0.00000001"
-              step="0.00000001"
-              value={formData.quantity || ''}
-              onChange={handleChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
-            />
-            {formData.entry_price && formData.quantity > 0 && (
-              <p className="mt-1 text-sm text-gray-500">
-                Total Trade Value: ${(formData.entry_price * formData.quantity).toFixed(2)}
-              </p>
-            )}
-          </div>
-
-          <div>
-            <label htmlFor="stop_loss" className="block text-sm font-medium text-gray-700">
-              Stop Loss
-            </label>
-            <div className="mt-1 relative rounded-md shadow-sm">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <span className="text-gray-500 sm:text-sm">$</span>
-              </div>
+            <div>
+              <label htmlFor="strategy" className="block text-sm font-medium text-gray-700">
+                Strategy
+              </label>
               <input
-                type="number"
-                name="stop_loss"
-                id="stop_loss"
-                step="0.01"
-                value={formData.stop_loss || ''}
+                type="text"
+                name="strategy"
+                id="strategy"
+                required
+                value={formData.strategy}
                 onChange={handleChange}
-                className="pl-7 mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                className="mt-2 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
               />
             </div>
-            {formData.stop_loss && formData.entry_price && (
-              <p className="mt-1 text-sm text-gray-500">
-                Risk: ${Math.abs(formData.entry_price - formData.stop_loss).toFixed(2)} per share
-              </p>
-            )}
-          </div>
 
-          <div>
-            <label htmlFor="take_profit" className="block text-sm font-medium text-gray-700">
-              Take Profit
-            </label>
-            <div className="mt-1 relative rounded-md shadow-sm">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <span className="text-gray-500 sm:text-sm">$</span>
+            <div>
+              <label htmlFor="stop_loss" className="block text-sm font-medium text-gray-700">
+                Stop Loss
+              </label>
+              <div className="mt-2 relative rounded-lg shadow-sm">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <span className="text-gray-500 sm:text-sm">$</span>
+                </div>
+                <input
+                  type="number"
+                  name="stop_loss"
+                  id="stop_loss"
+                  step="0.01"
+                  value={formData.stop_loss || ''}
+                  onChange={handleChange}
+                  className="pl-7 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                />
               </div>
-              <input
-                type="number"
-                name="take_profit"
-                id="take_profit"
-                step="0.01"
-                value={formData.take_profit || ''}
-                onChange={handleChange}
-                className="pl-7 mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
-              />
             </div>
-          </div>
 
-          <div>
-            <label htmlFor="fees" className="block text-sm font-medium text-gray-700">
-              Fees
-            </label>
-            <div className="mt-1 relative rounded-md shadow-sm">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <span className="text-gray-500 sm:text-sm">$</span>
+            <div>
+              <label htmlFor="take_profit" className="block text-sm font-medium text-gray-700">
+                Take Profit
+              </label>
+              <div className="mt-2 relative rounded-lg shadow-sm">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <span className="text-gray-500 sm:text-sm">$</span>
+                </div>
+                <input
+                  type="number"
+                  name="take_profit"
+                  id="take_profit"
+                  step="0.01"
+                  value={formData.take_profit || ''}
+                  onChange={handleChange}
+                  className="pl-7 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                />
               </div>
-              <input
-                type="number"
-                name="fees"
-                id="fees"
-                step="0.01"
-                value={formData.fees || ''}
+            </div>
+
+            <div>
+              <label htmlFor="fees" className="block text-sm font-medium text-gray-700">
+                Fees
+              </label>
+              <div className="mt-2 relative rounded-lg shadow-sm">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <span className="text-gray-500 sm:text-sm">$</span>
+                </div>
+                <input
+                  type="number"
+                  name="fees"
+                  id="fees"
+                  min="0"
+                  step="0.01"
+                  value={formData.fees}
+                  onChange={handleChange}
+                  className="pl-7 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                />
+              </div>
+            </div>
+
+            <div className="sm:col-span-2">
+              <label htmlFor="notes" className="block text-sm font-medium text-gray-700">
+                Notes
+              </label>
+              <textarea
+                name="notes"
+                id="notes"
+                rows={4}
+                value={formData.notes}
                 onChange={handleChange}
-                className="pl-7 mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                className="mt-2 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
               />
             </div>
           </div>
 
-          <div>
-            <label htmlFor="status" className="block text-sm font-medium text-gray-700">
-              Status
-            </label>
-            <select
-              name="status"
-              id="status"
-              required
-              value={formData.status}
-              onChange={handleChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+          <div className="flex justify-end space-x-4">
+            <button
+              type="button"
+              onClick={() => navigate('/trades')}
+              className="inline-flex items-center px-6 py-3 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200"
             >
-              <option value="open">Open</option>
-              <option value="closed">Closed</option>
-            </select>
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={loading}
+              className="inline-flex items-center px-6 py-3 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200"
+            >
+              {loading ? 'Saving...' : id ? 'Update Trade' : 'Create Trade'}
+            </button>
           </div>
-        </div>
-
-        <div>
-          <label htmlFor="strategy" className="block text-sm font-medium text-gray-700">
-            Strategy
-          </label>
-          <input
-            type="text"
-            name="strategy"
-            id="strategy"
-            required
-            value={formData.strategy || ''}
-            onChange={handleChange}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
-          />
-        </div>
-
-        <div>
-          <label htmlFor="notes" className="block text-sm font-medium text-gray-700">
-            Notes
-          </label>
-          <textarea
-            name="notes"
-            id="notes"
-            rows={4}
-            value={formData.notes}
-            onChange={handleChange}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
-          />
-        </div>
-
-        <div className="flex justify-end space-x-3">
-          <button
-            type="button"
-            onClick={() => navigate('/trades')}
-            className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={loading}
-            className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50"
-          >
-            {loading ? 'Saving...' : 'Save Trade'}
-          </button>
-        </div>
-      </form>
+        </form>
+      </div>
     </div>
   )
 }

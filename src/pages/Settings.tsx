@@ -197,168 +197,150 @@ function Settings() {
 
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <div className="text-gray-600">Loading settings...</div>
+      <div className="flex justify-center items-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
       </div>
     )
   }
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-semibold text-gray-900">Settings</h1>
-
-      {error && (
-        <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-6">
-          <p className="text-red-600">{error}</p>
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+        <div className="flex justify-between items-center">
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+            Settings
+          </h1>
         </div>
-      )}
 
-      {success && (
-        <div className="bg-green-50 border border-green-200 rounded-md p-4 mb-6">
-          <p className="text-green-600">{success}</p>
-        </div>
-      )}
-
-      {/* Capital Management */}
-      <div className="bg-white shadow rounded-lg p-6">
-        <h2 className="text-lg font-medium text-gray-900 mb-4">Capital Management</h2>
-        <div className="space-y-4">
-          <div>
-            <label htmlFor="totalCapital" className="block text-sm font-medium text-gray-700">
-              Total Available Capital
-            </label>
-            <div className="mt-1 relative rounded-md shadow-sm">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <span className="text-gray-500 sm:text-sm">$</span>
-              </div>
-              <input
-                type="number"
-                name="totalCapital"
-                id="totalCapital"
-                min="0"
-                step="0.01"
-                value={settings.totalCapital}
-                onChange={(e) => setSettings(prev => ({ ...prev, totalCapital: Number(e.target.value) }))}
-                className="focus:ring-primary-500 focus:border-primary-500 block w-full pl-7 pr-12 sm:text-sm border-gray-300 rounded-md"
-              />
-            </div>
+        {error && (
+          <div className="bg-red-50/80 backdrop-blur-lg border border-red-200 rounded-xl p-4">
+            <p className="text-red-600">{error}</p>
           </div>
+        )}
 
-          <div>
-            <label htmlFor="riskPerTrade" className="block text-sm font-medium text-gray-700">
-              Risk Per Trade (%)
-            </label>
-            <div className="mt-1 relative rounded-md shadow-sm">
-              <input
-                type="number"
-                name="riskPerTrade"
-                id="riskPerTrade"
-                min="0.1"
-                max="100"
-                step="0.1"
-                value={settings.riskPerTrade}
-                onChange={(e) => setSettings(prev => ({ ...prev, riskPerTrade: Number(e.target.value) }))}
-                className="focus:ring-primary-500 focus:border-primary-500 block w-full pr-12 sm:text-sm border-gray-300 rounded-md"
-              />
-              <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                <span className="text-gray-500 sm:text-sm">%</span>
-              </div>
-            </div>
-            <p className="mt-2 text-sm text-gray-500">
-              Maximum risk amount: ${((settings.totalCapital * settings.riskPerTrade) / 100).toFixed(2)}
-            </p>
+        {success && (
+          <div className="bg-green-50/80 backdrop-blur-lg border border-green-200 rounded-xl p-4">
+            <p className="text-green-600">{success}</p>
           </div>
+        )}
 
-          <div className="pt-4">
-            <button
-              onClick={handleSaveSettings}
-              disabled={loading}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50"
-            >
-              {loading ? 'Saving...' : 'Save Settings'}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Trading Strategies */}
-      <div className="bg-white shadow rounded-lg p-6">
-        <h2 className="text-lg font-medium text-gray-900 mb-4">Trading Strategies</h2>
-        <form onSubmit={handleAddStrategy} className="flex gap-2 mb-4">
-          <input
-            type="text"
-            value={newStrategy}
-            onChange={(e) => setNewStrategy(e.target.value)}
-            placeholder="Enter new strategy"
-            className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
-            required
-            minLength={1}
-          />
-          <button 
-            type="submit" 
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50"
-            disabled={!newStrategy.trim()}
-          >
-            Add Strategy
-          </button>
-        </form>
-        <div className="space-y-2">
-          {strategies.length === 0 ? (
-            <p className="text-sm text-gray-500">No strategies added yet.</p>
-          ) : (
-            strategies.map((strategy) => (
-              <div
-                key={strategy}
-                className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
-              >
-                <span className="text-sm text-gray-900">{strategy}</span>
-                <button
-                  onClick={() => handleDeleteStrategy(strategy)}
-                  className="text-red-600 hover:text-red-900"
-                >
-                  Delete
-                </button>
-              </div>
-            ))
-          )}
-        </div>
-      </div>
-
-      {/* Data Management */}
-      <div className="bg-white shadow rounded-lg p-6">
-        <h2 className="text-lg font-medium text-gray-900 mb-4">Data Management</h2>
-        <div className="space-y-6">
-          <div>
-            <h3 className="text-sm font-medium text-gray-700 mb-2">Export Data</h3>
-            <button
-              onClick={handleExport}
-              disabled={loading}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50"
-            >
-              {loading ? 'Exporting...' : 'Export Data'}
-            </button>
-          </div>
-
-          <div>
-            <h3 className="text-sm font-medium text-gray-700 mb-2">Import Data</h3>
-            <p className="text-sm text-gray-500 mb-2">
-              Import your trading data from a previously exported JSON file. This will replace all existing data.
-            </p>
-            <div className="flex items-center space-x-4">
-              <label
-                htmlFor="import-file"
-                className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 cursor-pointer"
-              >
-                {loading ? 'Importing...' : 'Select File'}
+        {/* Capital Management */}
+        <div className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-xl p-6 border border-white/20">
+          <h2 className="text-xl font-semibold text-gray-900 mb-6">Capital Management</h2>
+          <div className="space-y-4">
+            <div>
+              <label htmlFor="totalCapital" className="block text-sm font-medium text-gray-700">
+                Total Available Capital
               </label>
-              <input
-                type="file"
-                id="import-file"
-                accept=".json"
-                onChange={handleImport}
+              <div className="mt-2 relative rounded-md shadow-sm">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <span className="text-gray-500 sm:text-sm">$</span>
+                </div>
+                <input
+                  type="number"
+                  name="totalCapital"
+                  id="totalCapital"
+                  min="0"
+                  step="0.01"
+                  value={settings.totalCapital}
+                  onChange={(e) => setSettings(prev => ({ ...prev, totalCapital: Number(e.target.value) }))}
+                  className="focus:ring-indigo-500 focus:border-indigo-500 block w-full pl-7 pr-12 sm:text-sm border-gray-300 rounded-lg"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label htmlFor="riskPerTrade" className="block text-sm font-medium text-gray-700">
+                Risk Per Trade (%)
+              </label>
+              <div className="mt-2">
+                <input
+                  type="number"
+                  name="riskPerTrade"
+                  id="riskPerTrade"
+                  min="0"
+                  max="100"
+                  step="0.1"
+                  value={settings.riskPerTrade}
+                  onChange={(e) => setSettings(prev => ({ ...prev, riskPerTrade: Number(e.target.value) }))}
+                  className="focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-lg"
+                />
+              </div>
+            </div>
+
+            <div className="pt-4">
+              <button
+                type="button"
+                onClick={handleSaveSettings}
                 disabled={loading}
-                className="hidden"
+                className="inline-flex items-center px-6 py-3 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200"
+              >
+                {loading ? 'Saving...' : 'Save Settings'}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Trading Strategies */}
+        <div className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-xl p-6 border border-white/20">
+          <h2 className="text-xl font-semibold text-gray-900 mb-6">Trading Strategies</h2>
+          <div className="space-y-4">
+            <form onSubmit={handleAddStrategy} className="flex gap-4">
+              <input
+                type="text"
+                value={newStrategy}
+                onChange={(e) => setNewStrategy(e.target.value)}
+                placeholder="Enter strategy name"
+                className="flex-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-lg"
               />
+              <button
+                type="submit"
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200"
+              >
+                Add Strategy
+              </button>
+            </form>
+
+            <div className="mt-4">
+              <ul className="divide-y divide-gray-200">
+                {strategies.map((strategy) => (
+                  <li key={strategy} className="py-3 flex justify-between items-center">
+                    <span className="text-gray-900">{strategy}</span>
+                    <button
+                      onClick={() => handleDeleteStrategy(strategy)}
+                      className="text-red-600 hover:text-red-800 text-sm font-medium"
+                    >
+                      Delete
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        {/* Data Management */}
+        <div className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-xl p-6 border border-white/20">
+          <h2 className="text-xl font-semibold text-gray-900 mb-6">Data Management</h2>
+          <div className="space-y-4">
+            <div className="flex gap-4">
+              <button
+                onClick={handleExport}
+                disabled={loading}
+                className="inline-flex items-center px-6 py-3 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200"
+              >
+                {loading ? 'Exporting...' : 'Export Data'}
+              </button>
+              <label className="inline-flex items-center px-6 py-3 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200 cursor-pointer">
+                <span>{loading ? 'Importing...' : 'Import Data'}</span>
+                <input
+                  type="file"
+                  accept=".json"
+                  onChange={handleImport}
+                  className="hidden"
+                  disabled={loading}
+                />
+              </label>
             </div>
           </div>
         </div>
