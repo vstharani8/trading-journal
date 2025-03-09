@@ -172,6 +172,11 @@ function TradeForm() {
         throw new Error('User ID is required. Please ensure you are logged in.')
       }
 
+      // Validate that closed trades must have an exit date
+      if (formData.status === 'closed' && !formData.exit_date) {
+        throw new Error('Exit date is required for closed trades')
+      }
+
       // Extract only the fields that exist in the database
       const {
         market_conditions,
@@ -355,12 +360,13 @@ function TradeForm() {
 
             <div>
               <label htmlFor="exit_date" className="block text-sm font-medium text-gray-700">
-                Exit Date
+                Exit Date {formData.status === 'closed' && <span className="text-red-500">*</span>}
               </label>
               <input
                 type="date"
                 name="exit_date"
                 id="exit_date"
+                required={formData.status === 'closed'}
                 value={formData.exit_date || ''}
                 onChange={handleChange}
                 className="mt-2 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
