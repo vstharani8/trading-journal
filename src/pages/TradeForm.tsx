@@ -19,6 +19,9 @@ type TradeFormData = {
   screenshot: string | null
   status: 'open' | 'closed'
   user_id: string
+  market_conditions?: 'bullish' | 'bearish' | 'neutral'
+  trade_setup?: string
+  emotional_state?: 'confident' | 'uncertain' | 'neutral'
 }
 
 const initialFormData: TradeFormData = {
@@ -47,6 +50,12 @@ function TradeForm() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [userSettings, setUserSettings] = useState<{ totalCapital: number; riskPerTrade: number }>({
+    totalCapital: 0,
+    riskPerTrade: 1
+  })
+  const [suggestedSize, setSuggestedSize] = useState<number | null>(null)
+  const [riskAmount, setRiskAmount] = useState<number | null>(null)
 
   useEffect(() => {
     if (user?.id) {
@@ -59,6 +68,14 @@ function TradeForm() {
       loadTrade()
     }
   }, [id])
+
+  useEffect(() => {
+    loadUserSettings()
+  }, [user])
+
+  useEffect(() => {
+    calculatePositionSize()
+  }, [formData.entry_price, formData.stop_loss, userSettings])
 
   const loadTrade = async () => {
     try {
@@ -92,6 +109,47 @@ function TradeForm() {
     }
   }
 
+  const loadUserSettings = async () => {
+    try {
+      const { data: settings, error } = await db.supabase
+        .from('user_settings')
+        .select('*')
+        .eq('user_id', user?.id)
+        .single()
+
+      if (!error && settings) {
+        setUserSettings({
+          totalCapital: settings.total_capital || 0,
+          riskPerTrade: settings.risk_per_trade || 1
+        })
+      }
+    } catch (error) {
+      console.error('Error loading user settings:', error)
+    }
+  }
+
+  const calculatePositionSize = () => {
+    if (!formData.entry_price || !formData.stop_loss || !userSettings.totalCapital) {
+      setSuggestedSize(null)
+      setRiskAmount(null)
+      return
+    }
+
+    const riskPercentage = userSettings.riskPerTrade / 100
+    const maxRiskAmount = userSettings.totalCapital * riskPercentage
+    const priceRisk = Math.abs(formData.entry_price - formData.stop_loss)
+    
+    if (priceRisk === 0) {
+      setSuggestedSize(null)
+      setRiskAmount(null)
+      return
+    }
+
+    const calculatedSize = Math.floor(maxRiskAmount / priceRisk)
+    setSuggestedSize(calculatedSize)
+    setRiskAmount(calculatedSize * priceRisk)
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
@@ -99,10 +157,26 @@ function TradeForm() {
       setError(null)
       setSuccess(null)
 
+      // Validate required fields
+      if (!formData.user_id) {
+        throw new Error('User ID is required. Please ensure you are logged in.')
+      }
+
+      // Extract only the fields that exist in the database
+      const {
+        market_conditions,
+        trade_setup,
+        emotional_state,
+        ...dbFormData
+      } = formData
+
       const submitData = {
-        ...formData,
-        entry_date: new Date(formData.entry_date).toISOString(),
-        exit_date: formData.exit_date ? new Date(formData.exit_date).toISOString() : null
+        ...dbFormData,
+        entry_date: new Date(dbFormData.entry_date).toISOString(),
+        exit_date: dbFormData.exit_date ? new Date(dbFormData.exit_date).toISOString() : null,
+        notes: dbFormData.notes || '', // Ensure notes is never null
+        fees: dbFormData.fees || 0, // Ensure fees is never null
+        strategy: dbFormData.strategy || 'Unknown' // Ensure strategy is never null
       }
 
       if (id) {
@@ -121,6 +195,7 @@ function TradeForm() {
         setTimeout(() => navigate('/trades'), 1500)
       }
     } catch (err) {
+      console.error('Error saving trade:', err) // Add error logging
       setError(err instanceof Error ? err.message : 'Failed to save trade')
     } finally {
       setLoading(false)
@@ -135,7 +210,27 @@ function TradeForm() {
       ? value === '' ? null : Number(value)
       : value
 
-    setFormData(prev => ({ ...prev, [name]: numValue }))
+    setFormData(prev => {
+      const newData = { ...prev, [name]: numValue }
+      
+      // Automatically set status to 'closed' when exit price is entered
+      if (name === 'exit_price' && numValue !== null) {
+        newData.status = 'closed'
+      }
+      
+      return newData
+    })
+  }
+
+  const handleScreenshotChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        setFormData(prev => ({ ...prev, screenshot: reader.result as string }))
+      }
+      reader.readAsDataURL(file)
+    }
   }
 
   if (loading) {
@@ -199,6 +294,38 @@ function TradeForm() {
                 <option value="long">Long</option>
                 <option value="short">Short</option>
               </select>
+            </div>
+
+            <div>
+              <label htmlFor="status" className="block text-sm font-medium text-gray-700">
+                Status
+              </label>
+              <div className="mt-2">
+                <div className="flex rounded-lg shadow-sm">
+                  <button
+                    type="button"
+                    onClick={() => setFormData(prev => ({ ...prev, status: 'open' }))}
+                    className={`flex-1 px-4 py-2 text-sm font-medium rounded-l-lg border ${
+                      formData.status === 'open'
+                        ? 'bg-indigo-600 text-white border-indigo-600'
+                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                    }`}
+                  >
+                    Open
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFormData(prev => ({ ...prev, status: 'closed' }))}
+                    className={`flex-1 px-4 py-2 text-sm font-medium rounded-r-lg border -ml-px ${
+                      formData.status === 'closed'
+                        ? 'bg-indigo-600 text-white border-indigo-600'
+                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                    }`}
+                  >
+                    Closed
+                  </button>
+                </div>
+              </div>
             </div>
 
             <div>
@@ -360,6 +487,117 @@ function TradeForm() {
                   value={formData.fees}
                   onChange={handleChange}
                   className="pl-7 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                />
+              </div>
+            </div>
+
+            {/* Position Size Calculator */}
+            {formData.entry_price && formData.stop_loss && suggestedSize && riskAmount && (
+              <div className="sm:col-span-2 bg-indigo-50/50 rounded-xl p-4 space-y-2">
+                <h3 className="text-sm font-medium text-indigo-900">Position Size Calculator</h3>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="text-gray-600">Risk Amount:</span>
+                    <span className="ml-2 text-indigo-700 font-medium">${riskAmount.toFixed(2)}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-600">Suggested Size:</span>
+                    <span className="ml-2 text-indigo-700 font-medium">{suggestedSize} shares</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-600">Risk per Share:</span>
+                    <span className="ml-2 text-indigo-700 font-medium">
+                      ${Math.abs(formData.entry_price - formData.stop_loss).toFixed(2)}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-gray-600">Account Risk:</span>
+                    <span className="ml-2 text-indigo-700 font-medium">{userSettings.riskPerTrade}%</span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setFormData(prev => ({ ...prev, quantity: suggestedSize }))}
+                  className="mt-2 text-sm text-indigo-600 hover:text-indigo-800 font-medium"
+                >
+                  Apply Suggested Size
+                </button>
+              </div>
+            )}
+
+            {/* Market Context */}
+            <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <label htmlFor="market_conditions" className="block text-sm font-medium text-gray-700">
+                  Market Conditions
+                </label>
+                <select
+                  name="market_conditions"
+                  id="market_conditions"
+                  value={formData.market_conditions || ''}
+                  onChange={handleChange}
+                  className="mt-2 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                >
+                  <option value="">Select Condition</option>
+                  <option value="bullish">Bullish</option>
+                  <option value="bearish">Bearish</option>
+                  <option value="neutral">Neutral</option>
+                </select>
+              </div>
+
+              <div>
+                <label htmlFor="trade_setup" className="block text-sm font-medium text-gray-700">
+                  Trade Setup
+                </label>
+                <input
+                  type="text"
+                  name="trade_setup"
+                  id="trade_setup"
+                  placeholder="e.g., Break and Retest"
+                  value={formData.trade_setup || ''}
+                  onChange={handleChange}
+                  className="mt-2 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="emotional_state" className="block text-sm font-medium text-gray-700">
+                  Emotional State
+                </label>
+                <select
+                  name="emotional_state"
+                  id="emotional_state"
+                  value={formData.emotional_state || ''}
+                  onChange={handleChange}
+                  className="mt-2 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                >
+                  <option value="">Select State</option>
+                  <option value="confident">Confident</option>
+                  <option value="uncertain">Uncertain</option>
+                  <option value="neutral">Neutral</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Screenshot Upload */}
+            <div className="sm:col-span-2">
+              <label htmlFor="screenshot" className="block text-sm font-medium text-gray-700">
+                Chart Screenshot
+              </label>
+              <div className="mt-2">
+                <input
+                  type="file"
+                  name="screenshot"
+                  id="screenshot"
+                  accept="image/*"
+                  onChange={handleScreenshotChange}
+                  className="block w-full text-sm text-gray-500
+                    file:mr-4 file:py-2 file:px-4
+                    file:rounded-lg file:border-0
+                    file:text-sm file:font-medium
+                    file:bg-indigo-50 file:text-indigo-700
+                    hover:file:bg-indigo-100
+                    focus:outline-none"
                 />
               </div>
             </div>

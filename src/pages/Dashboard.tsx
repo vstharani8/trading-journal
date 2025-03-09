@@ -39,7 +39,7 @@ export default function Dashboard() {
     totalProfitLoss: 0,
     averageRR: 0,
     bestTrade: null,
-    worstTrade: null,
+    worstTrade: null
   });
 
   useEffect(() => {
@@ -145,7 +145,7 @@ export default function Dashboard() {
             ? ((worst.exit_price - worst.entry_price) / worst.entry_price) * 100
             : 0;
           return currentPL < worstPL ? trade : worst;
-        }, null as Trade | null),
+        }, null as Trade | null)
       });
 
       // Calculate monthly performance data
