@@ -15,7 +15,9 @@ import {
   Legend,
   ResponsiveContainer,
   ReferenceLine,
-  Cell
+  Cell,
+  PieChart,
+  Pie
 } from 'recharts';
 import { format, parseISO, startOfMonth, endOfMonth, eachMonthOfInterval, subMonths, isWithinInterval } from 'date-fns';
 
@@ -36,6 +38,20 @@ interface MonthlyData {
   averageReturn: number;
 }
 
+interface StrategyPerformance {
+  name: string;
+  totalTrades: number;
+  winRate: number;
+  profitLoss: number;
+  averageReturn: number;
+  averageRR: number;
+  profitFactor: number;
+  totalWins: number;
+  totalLosses: number;
+  grossProfit: number;
+  grossLoss: number;
+}
+
 export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -50,6 +66,7 @@ export default function Dashboard() {
     bestTrade: null,
     worstTrade: null
   });
+  const [strategyPerformance, setStrategyPerformance] = useState<StrategyPerformance[]>([]);
 
   useEffect(() => {
     loadDashboardData();
@@ -118,6 +135,74 @@ export default function Dashboard() {
     setMonthlyData(monthlyStats);
   };
 
+  const calculateStrategyPerformance = (trades: Trade[]) => {
+    const strategies = new Map<string, StrategyPerformance>();
+
+    trades.forEach(trade => {
+      if (!trade.strategy) return;
+
+      const existing = strategies.get(trade.strategy) || {
+        name: trade.strategy,
+        totalTrades: 0,
+        winRate: 0,
+        profitLoss: 0,
+        averageReturn: 0,
+        averageRR: 0,
+        profitFactor: 0,
+        totalWins: 0,
+        totalLosses: 0,
+        grossProfit: 0,
+        grossLoss: 0
+      };
+
+      if (trade.status !== 'closed') return;
+
+      const pl = trade.exit_price && trade.entry_price
+        ? (trade.type === 'long'
+            ? trade.exit_price - trade.entry_price
+            : trade.entry_price - trade.exit_price) * trade.quantity - (trade.fees || 0)
+        : 0;
+
+      const isWin = pl > 0;
+      const rr = trade.exit_price && trade.entry_price && trade.stop_loss
+        ? Math.abs(
+            trade.type === 'long'
+              ? (trade.exit_price - trade.entry_price) / (trade.entry_price - trade.stop_loss)
+              : (trade.entry_price - trade.exit_price) / (trade.stop_loss - trade.entry_price)
+          )
+        : 0;
+
+      strategies.set(trade.strategy, {
+        ...existing,
+        totalTrades: existing.totalTrades + 1,
+        profitLoss: existing.profitLoss + pl,
+        totalWins: existing.totalWins + (isWin ? 1 : 0),
+        totalLosses: existing.totalLosses + (isWin ? 0 : 1),
+        grossProfit: existing.grossProfit + (pl > 0 ? pl : 0),
+        grossLoss: existing.grossLoss + (pl < 0 ? Math.abs(pl) : 0),
+        averageRR: existing.averageRR + (rr || 0)
+      });
+    });
+
+    const performanceData = Array.from(strategies.values()).map(strategy => ({
+      name: strategy.name,
+      totalTrades: strategy.totalTrades,
+      winRate: (strategy.totalWins / strategy.totalTrades) * 100,
+      profitLoss: strategy.profitLoss,
+      averageReturn: strategy.profitLoss / strategy.totalTrades,
+      averageRR: strategy.averageRR / strategy.totalTrades,
+      profitFactor: strategy.grossLoss === 0 ? strategy.grossProfit : strategy.grossProfit / strategy.grossLoss,
+      totalWins: strategy.totalWins,
+      totalLosses: strategy.totalLosses,
+      grossProfit: strategy.grossProfit,
+      grossLoss: strategy.grossLoss
+    }));
+
+    // Sort by profit/loss
+    performanceData.sort((a, b) => b.profitLoss - a.profitLoss);
+    setStrategyPerformance(performanceData);
+  };
+
   const loadDashboardData = async () => {
     try {
       setLoading(true);
@@ -179,6 +264,9 @@ export default function Dashboard() {
 
       // Calculate monthly performance data
       calculateMonthlyData(allTrades);
+      
+      // Calculate strategy performance
+      calculateStrategyPerformance(allTrades);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load dashboard data');
     } finally {
@@ -411,6 +499,128 @@ export default function Dashboard() {
                 <p className="mt-1 text-sm text-gray-500">
                   per trade
                 </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Strategy Performance */}
+        <div className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-xl p-6 border border-white/20">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Strategy Performance</h2>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Strategy Bar Chart */}
+            <div className="lg:col-span-2 h-80">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={strategyPerformance}
+                  layout="vertical"
+                  margin={{ top: 5, right: 30, left: 100, bottom: 5 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                  <XAxis type="number" tickFormatter={(value) => `$${value}`} />
+                  <YAxis type="category" dataKey="name" width={90} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                      borderRadius: '0.5rem',
+                      border: 'none',
+                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                    }}
+                    formatter={(value: number, _name: string) => [
+                      `$${value.toFixed(2)}`,
+                      'Profit/Loss'
+                    ]}
+                  />
+                  <Bar dataKey="profitLoss" name="Profit/Loss" radius={[0, 4, 4, 0]}>
+                    {strategyPerformance.map((entry, index) => (
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={entry.profitLoss >= 0 ? '#10B981' : '#EF4444'}
+                      />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Strategy Win Rate Pie Chart */}
+            <div className="h-80">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={strategyPerformance}
+                    dataKey="totalTrades"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={80}
+                    fill="#6366F1"
+                    label={(entry) => `${entry.name} (${entry.value})`}
+                  >
+                    {strategyPerformance.map((_entry, index) => (
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={`hsl(${index * (360 / strategyPerformance.length)}, 70%, 60%)`}
+                      />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    formatter={(value: number, _name: string) => [
+                      value,
+                      'Total Trades'
+                    ]}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Strategy Statistics Grid */}
+            <div className="lg:col-span-3">
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead>
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Strategy</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Trades</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Win Rate</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Profit/Loss</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Avg Return</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Avg R:R</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Profit Factor</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white/50 divide-y divide-gray-200">
+                    {strategyPerformance.map((strategy) => (
+                      <tr key={strategy.name} className="hover:bg-indigo-50/50">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                          {strategy.name}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {strategy.totalTrades}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {strategy.winRate.toFixed(1)}%
+                        </td>
+                        <td className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${
+                          strategy.profitLoss >= 0 ? 'text-green-600' : 'text-red-600'
+                        }`}>
+                          ${strategy.profitLoss.toFixed(2)}
+                        </td>
+                        <td className={`px-6 py-4 whitespace-nowrap text-sm ${
+                          strategy.averageReturn >= 0 ? 'text-green-600' : 'text-red-600'
+                        }`}>
+                          ${strategy.averageReturn.toFixed(2)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {strategy.averageRR.toFixed(2)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {strategy.profitFactor.toFixed(2)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>
