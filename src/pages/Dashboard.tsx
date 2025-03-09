@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { db } from '../services/supabase'
 import type { Trade } from '../services/supabase'
 import {
@@ -17,8 +16,16 @@ import { format, parseISO, startOfMonth, endOfMonth, eachMonthOfInterval, subMon
 interface Statistics {
   totalProfitLoss: number
   winRate: number
-  profitFactor: number
+  avgRiskRewardRatio: number
   maxDrawdown: number
+  bestTrade: {
+    symbol: string
+    profitPercentage: number
+  } | null
+  worstTrade: {
+    symbol: string
+    lossPercentage: number
+  } | null
 }
 
 interface MonthlyData {
@@ -28,14 +35,15 @@ interface MonthlyData {
 }
 
 function Dashboard() {
-  const [trades, setTrades] = useState<Trade[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [statistics, setStatistics] = useState<Statistics>({
     totalProfitLoss: 0,
     winRate: 0,
-    profitFactor: 0,
-    maxDrawdown: 0
+    avgRiskRewardRatio: 0,
+    maxDrawdown: 0,
+    bestTrade: null,
+    worstTrade: null
   })
   const [monthlyData, setMonthlyData] = useState<MonthlyData[]>([])
 
@@ -46,7 +54,6 @@ function Dashboard() {
   const loadTrades = async () => {
     try {
       const data = await db.getAllTrades()
-      setTrades(data)
       calculateStatistics(data)
       calculateMonthlyData(data)
     } catch (err) {
@@ -74,17 +81,37 @@ function Dashboard() {
     return (winningTrades.length / closedTrades.length) * 100
   }
 
-  const calculateProfitFactor = (trades: Trade[]): number => {
-    const closedTrades = trades.filter(trade => trade.status === 'closed')
-    const grossProfit = closedTrades.reduce((total, trade) => {
-      const pl = calculateProfitLoss(trade)
-      return total + (pl > 0 ? pl : 0)
-    }, 0)
-    const grossLoss = Math.abs(closedTrades.reduce((total, trade) => {
-      const pl = calculateProfitLoss(trade)
-      return total + (pl < 0 ? pl : 0)
-    }, 0))
-    return grossLoss === 0 ? grossProfit : grossProfit / grossLoss
+  const calculateRiskRewardRatio = (trade: Trade): number | null => {
+    // For long positions
+    if (trade.type === 'long') {
+      if (!trade.entry_price || !trade.stop_loss) return null;
+      const risk = trade.entry_price - trade.stop_loss;
+      const reward = trade.exit_price 
+        ? trade.exit_price - trade.entry_price 
+        : (trade.take_profit ? trade.take_profit - trade.entry_price : 0);
+      
+      return risk > 0 ? reward / risk : null;
+    }
+    // For short positions
+    else {
+      if (!trade.entry_price || !trade.stop_loss) return null;
+      const risk = trade.stop_loss - trade.entry_price;
+      const reward = trade.exit_price 
+        ? trade.entry_price - trade.exit_price 
+        : (trade.take_profit ? trade.entry_price - trade.take_profit : 0);
+      
+      return risk > 0 ? reward / risk : null;
+    }
+  }
+
+  const calculateAverageRiskRewardRatio = (trades: Trade[]): number => {
+    const ratios = trades
+      .map(trade => calculateRiskRewardRatio(trade))
+      .filter((ratio): ratio is number => ratio !== null);
+    
+    if (ratios.length === 0) return 0;
+    const sum = ratios.reduce((acc, ratio) => acc + ratio, 0);
+    return sum / ratios.length;
   }
 
   const calculateMaxDrawdown = (trades: Trade[]): number => {
@@ -106,23 +133,57 @@ function Dashboard() {
     return maxDrawdown
   }
 
+  const calculateProfitLossPercentage = (trade: Trade): number => {
+    if (!trade.exit_price || !trade.entry_price) return 0;
+    return ((trade.exit_price - trade.entry_price) / trade.entry_price) * 100;
+  }
+
+  const findBestAndWorstTrades = (trades: Trade[]): { bestTrade: Statistics['bestTrade'], worstTrade: Statistics['worstTrade'] } => {
+    const closedTrades = trades.filter(t => t.status === 'closed' && t.exit_price && t.entry_price);
+    if (closedTrades.length === 0) return { bestTrade: null, worstTrade: null };
+
+    const tradesWithPerformance = closedTrades.map(trade => ({
+      symbol: trade.symbol,
+      percentage: calculateProfitLossPercentage(trade)
+    }));
+
+    const bestTrade = tradesWithPerformance.reduce((best, current) => 
+      current.percentage > (best?.percentage || -Infinity) ? current : best
+    , null as { symbol: string, percentage: number } | null);
+
+    const worstTrade = tradesWithPerformance.reduce((worst, current) => 
+      current.percentage < (worst?.percentage || Infinity) ? current : worst
+    , null as { symbol: string, percentage: number } | null);
+
+    return {
+      bestTrade: bestTrade ? {
+        symbol: bestTrade.symbol,
+        profitPercentage: bestTrade.percentage
+      } : null,
+      worstTrade: worstTrade ? {
+        symbol: worstTrade.symbol,
+        lossPercentage: worstTrade.percentage
+      } : null
+    };
+  }
+
   const calculateStatistics = (trades: Trade[]) => {
     const closedTrades = trades.filter(t => t.status === 'closed')
     if (closedTrades.length === 0) return
 
     const totalProfitLoss = calculateTotalProfitLoss(trades)
     const winRate = calculateWinRate(trades)
-    
-    const profitFactor = calculateProfitFactor(trades)
-
-    // Calculate max drawdown
-    let maxDrawdown = calculateMaxDrawdown(trades)
+    const avgRiskRewardRatio = calculateAverageRiskRewardRatio(trades)
+    const maxDrawdown = calculateMaxDrawdown(trades)
+    const { bestTrade, worstTrade } = findBestAndWorstTrades(trades)
 
     setStatistics({
       totalProfitLoss,
       winRate,
-      profitFactor,
-      maxDrawdown
+      avgRiskRewardRatio,
+      maxDrawdown,
+      bestTrade,
+      worstTrade
     })
   }
 
@@ -156,17 +217,6 @@ function Dashboard() {
     })
 
     setMonthlyData(monthlyStats)
-  }
-
-  const handleDelete = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this trade?')) return
-
-    try {
-      await db.deleteTrade(id)
-      setTrades(trades.filter(trade => trade.id !== id))
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete trade')
-    }
   }
 
   if (loading) {
@@ -206,9 +256,9 @@ function Dashboard() {
           </p>
         </div>
         <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-sm font-medium text-gray-500">Profit Factor</h3>
+          <h3 className="text-sm font-medium text-gray-500">Avg R:R Ratio</h3>
           <p className="mt-2 text-2xl font-semibold text-gray-900">
-            {statistics.profitFactor.toFixed(2)}
+            1:{parseFloat(statistics.avgRiskRewardRatio.toFixed(2))}
           </p>
         </div>
         <div className="bg-white rounded-lg shadow p-6">
@@ -250,83 +300,39 @@ function Dashboard() {
         </div>
       </div>
 
-      {/* Recent Trades */}
-      <div className="flex justify-between items-center">
-        <h2 className="text-lg font-medium text-gray-900">Recent Trades</h2>
-        <Link
-          to="/trade/new"
-          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
-        >
-          New Trade
-        </Link>
+      {/* Best and Worst Trades */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="bg-white rounded-lg shadow p-6">
+          <h3 className="text-sm font-medium text-gray-500">Best Trade</h3>
+          {statistics.bestTrade ? (
+            <div className="mt-2">
+              <p className="text-2xl font-semibold text-green-600">
+                {statistics.bestTrade.symbol}
+              </p>
+              <p className="text-lg text-green-600">
+                +{parseFloat(statistics.bestTrade.profitPercentage.toFixed(2))}%
+              </p>
+            </div>
+          ) : (
+            <p className="mt-2 text-gray-500">No closed trades</p>
+          )}
+        </div>
+        <div className="bg-white rounded-lg shadow p-6">
+          <h3 className="text-sm font-medium text-gray-500">Worst Trade</h3>
+          {statistics.worstTrade ? (
+            <div className="mt-2">
+              <p className="text-2xl font-semibold text-red-600">
+                {statistics.worstTrade.symbol}
+              </p>
+              <p className="text-lg text-red-600">
+                {parseFloat(statistics.worstTrade.lossPercentage.toFixed(2))}%
+              </p>
+            </div>
+          ) : (
+            <p className="mt-2 text-gray-500">No closed trades</p>
+          )}
+        </div>
       </div>
-
-      {trades.length === 0 ? (
-        <div className="text-center py-12">
-          <p className="text-gray-500">No trades yet. Start by adding your first trade!</p>
-        </div>
-      ) : (
-        <div className="bg-white shadow overflow-hidden sm:rounded-md">
-          <ul className="divide-y divide-gray-200">
-            {trades.map((trade) => {
-              const profitLoss = calculateProfitLoss(trade)
-              return (
-                <li key={trade.id}>
-                  <div className="px-4 py-4 sm:px-6">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center">
-                        <p className="text-sm font-medium text-primary-600 truncate">
-                          {trade.symbol}
-                        </p>
-                        <div className="ml-2 flex-shrink-0 flex">
-                          <p
-                            className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                              profitLoss >= 0
-                                ? 'bg-green-100 text-green-800'
-                                : 'bg-red-100 text-red-800'
-                            }`}
-                          >
-                            {profitLoss >= 0 ? '+' : ''}${profitLoss.toFixed(2)}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="ml-2 flex-shrink-0 flex">
-                        <Link
-                          to={`/trade/${trade.id}`}
-                          className="text-primary-600 hover:text-primary-900 mr-4"
-                        >
-                          Edit
-                        </Link>
-                        <button
-                          onClick={() => handleDelete(trade.id)}
-                          className="text-red-600 hover:text-red-900"
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </div>
-                    <div className="mt-2 sm:flex sm:justify-between">
-                      <div className="sm:flex">
-                        <p className="flex items-center text-sm text-gray-500">
-                          Entry: {new Date(trade.entry_date).toLocaleDateString()}
-                        </p>
-                        {trade.exit_date && (
-                          <p className="mt-2 flex items-center text-sm text-gray-500 sm:mt-0 sm:ml-6">
-                            Exit: {new Date(trade.exit_date).toLocaleDateString()}
-                          </p>
-                        )}
-                      </div>
-                      <div className="mt-2 flex items-center text-sm text-gray-500 sm:mt-0">
-                        <p>Strategy: {trade.strategy}</p>
-                      </div>
-                    </div>
-                  </div>
-                </li>
-              )
-            })}
-          </ul>
-        </div>
-      )}
     </div>
   )
 }
