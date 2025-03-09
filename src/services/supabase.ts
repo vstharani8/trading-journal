@@ -106,14 +106,37 @@ export const db = {
   },
 
   // Strategy operations
-  async getStrategies(): Promise<string[]> {
+  async getStrategies(userId: string): Promise<string[]> {
     const { data, error } = await supabase
-      .from('trades')
-      .select('strategy')
-      .not('strategy', 'is', null)
+      .from('strategies')
+      .select('name')
+      .eq('user_id', userId)
+      .order('name', { ascending: true });
 
-    if (error) throw error
-    return [...new Set(data?.map(t => t.strategy) || [])]
+    if (error) throw error;
+    return data?.map(strategy => strategy.name) || [];
+  },
+
+  async addStrategy(userId: string, name: string): Promise<void> {
+    const { error } = await supabase
+      .from('strategies')
+      .insert([{ 
+        user_id: userId,
+        name,
+        created_at: new Date().toISOString()
+      }]);
+
+    if (error) throw error;
+  },
+
+  async deleteStrategy(userId: string, name: string): Promise<void> {
+    const { error } = await supabase
+      .from('strategies')
+      .delete()
+      .eq('user_id', userId)
+      .eq('name', name);
+
+    if (error) throw error;
   },
 
   // User settings operations

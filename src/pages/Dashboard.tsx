@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { db } from '../services/supabase';
-import type { Trade } from '../services/supabase';
+import type { Trade, UserSettings } from '../services/supabase';
+import EquityCurve from '../components/EquityCurve';
 import {
   LineChart,
   Line,
@@ -33,6 +34,8 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [monthlyData, setMonthlyData] = useState<MonthlyData[]>([]);
+  const [trades, setTrades] = useState<Trade[]>([]);
+  const [userSettings, setUserSettings] = useState<UserSettings | null>(null);
   const [stats, setStats] = useState<DashboardStats>({
     totalTrades: 0,
     winRate: 0,
@@ -44,7 +47,20 @@ export default function Dashboard() {
 
   useEffect(() => {
     loadDashboardData();
+    loadUserSettings();
   }, []);
+
+  const loadUserSettings = async () => {
+    try {
+      const { data: { session } } = await db.supabase.auth.getSession();
+      if (session?.user) {
+        const settings = await db.getUserSettings(session.user.id);
+        setUserSettings(settings);
+      }
+    } catch (err) {
+      console.error('Error loading user settings:', err);
+    }
+  };
 
   const calculateMonthlyData = (trades: Trade[]) => {
     const last6Months = eachMonthOfInterval({
@@ -93,10 +109,11 @@ export default function Dashboard() {
   const loadDashboardData = async () => {
     try {
       setLoading(true);
-      const trades = await db.getAllTrades();
+      const allTrades = await db.getAllTrades();
+      setTrades(allTrades);
       
       // Calculate dashboard statistics
-      const closedTrades = trades.filter(trade => trade.status === 'closed');
+      const closedTrades = allTrades.filter(trade => trade.status === 'closed');
       const profitableTrades = closedTrades.filter(trade => 
         trade.exit_price && trade.entry_price && 
         (trade.type === 'long' ? trade.exit_price > trade.entry_price : trade.exit_price < trade.entry_price)
@@ -122,7 +139,7 @@ export default function Dashboard() {
       }, 0) / (closedTrades.length || 1);
 
       setStats({
-        totalTrades: trades.length,
+        totalTrades: allTrades.length,
         winRate: closedTrades.length ? (profitableTrades.length / closedTrades.length) * 100 : 0,
         totalProfitLoss: totalPL,
         averageRR: averageRR,
@@ -149,7 +166,7 @@ export default function Dashboard() {
       });
 
       // Calculate monthly performance data
-      calculateMonthlyData(trades);
+      calculateMonthlyData(allTrades);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load dashboard data');
     } finally {
@@ -220,6 +237,19 @@ export default function Dashboard() {
             </p>
           </div>
         </div>
+
+        {/* Equity Curve */}
+        {userSettings && (
+          <div className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-xl border border-white/20">
+            <div className="p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Account Equity</h2>
+              <EquityCurve 
+                trades={trades} 
+                initialCapital={userSettings.total_capital} 
+              />
+            </div>
+          </div>
+        )}
 
         {/* Monthly Performance Chart */}
         <div className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-xl p-6 border border-white/20">

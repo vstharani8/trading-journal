@@ -9,8 +9,8 @@ interface UserSettings {
 
 function Settings() {
   const { user } = useAuth()
-  const [strategies, setStrategies] = useState<string[]>([])
   const [newStrategy, setNewStrategy] = useState('')
+  const [strategies, setStrategies] = useState<string[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -21,86 +21,86 @@ function Settings() {
   })
 
   useEffect(() => {
-    const loadSettings = async () => {
-      try {
-        setIsLoading(true)
-        // Load strategies
-        const savedStrategies = await db.getStrategies()
-        setStrategies(savedStrategies || [])
-
-        // Load user settings
-        const { data: userSettings, error } = await db.supabase
-          .from('user_settings')
-          .select('*')
-          .eq('user_id', user?.id)
-          .single()
-
-        if (!error && userSettings) {
-          setSettings({
-            totalCapital: userSettings.total_capital || 0,
-            riskPerTrade: userSettings.risk_per_trade || 1
-          })
-        }
-      } catch (error) {
-        console.error('Error loading settings:', error)
-      } finally {
-        setIsLoading(false)
-      }
-    }
     loadSettings()
+    loadStrategies()
   }, [user])
+
+  const loadSettings = async () => {
+    try {
+      setIsLoading(true)
+      const userSettings = await db.getUserSettings(user?.id || '')
+      
+      if (userSettings) {
+        setSettings({
+          totalCapital: userSettings.total_capital || 0,
+          riskPerTrade: userSettings.risk_per_trade || 1
+        })
+      }
+    } catch (error) {
+      console.error('Error loading settings:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const loadStrategies = async () => {
+    try {
+      const userStrategies = await db.getStrategies(user?.id || '')
+      setStrategies(userStrategies)
+    } catch (error) {
+      console.error('Error loading strategies:', error)
+    }
+  }
 
   const handleAddStrategy = async (e: React.FormEvent) => {
     e.preventDefault()
     const trimmedStrategy = newStrategy.trim()
-    if (trimmedStrategy && !strategies.includes(trimmedStrategy)) {
-      try {
-        // Add a dummy trade with the new strategy to make it available
-        await db.addTrade({
-          symbol: 'AAPL',
-          type: 'long',
-          entry_date: new Date().toISOString(),
-          exit_date: null,
-          entry_price: 150,
-          exit_price: null,
-          quantity: 0,
-          strategy: trimmedStrategy,
-          notes: 'Test trade',
-          fees: 0,
-          stop_loss: null,
-          take_profit: null,
-          screenshot: null,
-          status: 'open',
-          user_id: user?.id || ''
-        })
-        
-        // Refresh strategies
-        const updatedStrategies = await db.getStrategies()
-        setStrategies(updatedStrategies)
-        setNewStrategy('')
-      } catch (error) {
-        console.error('Error adding strategy:', error)
-        alert('Failed to add strategy. Please try again.')
-      }
+    
+    if (!trimmedStrategy) {
+      setError('Strategy name cannot be empty')
+      return
+    }
+    
+    if (strategies.includes(trimmedStrategy)) {
+      setError('Strategy already exists')
+      return
+    }
+
+    try {
+      setLoading(true)
+      setError(null)
+      
+      await db.addStrategy(user?.id || '', trimmedStrategy)
+      await loadStrategies() // Reload strategies after adding
+      
+      setNewStrategy('')
+      setSuccess('Strategy added successfully')
+    } catch (error) {
+      setError('Failed to add strategy')
+      console.error('Error adding strategy:', error)
+    } finally {
+      setLoading(false)
     }
   }
 
   const handleDeleteStrategy = async (strategy: string) => {
-    try {
-      // Delete all trades with this strategy
-      const trades = await db.getAllTrades()
-      const tradesToDelete = trades.filter(t => t.strategy === strategy)
-      
-      for (const trade of tradesToDelete) {
-        await db.deleteTrade(trade.id)
-      }
+    if (!window.confirm(`Are you sure you want to delete the strategy "${strategy}"?`)) {
+      return
+    }
 
-      // Refresh strategies
-      const updatedStrategies = await db.getStrategies()
-      setStrategies(updatedStrategies)
+    try {
+      setLoading(true)
+      setError(null)
+      
+      await db.deleteStrategy(user?.id || '', strategy)
+      await loadStrategies() // Reload strategies after deleting
+      
+      setSuccess('Strategy deleted successfully')
     } catch (error) {
+      setError('Failed to delete strategy')
       console.error('Error deleting strategy:', error)
-      alert('Failed to delete strategy. Please try again.')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -110,16 +110,12 @@ function Settings() {
       setError(null)
       setSuccess(null)
 
-      const { error } = await db.supabase
-        .from('user_settings')
-        .upsert({
-          user_id: user?.id,
-          total_capital: settings.totalCapital,
-          risk_per_trade: settings.riskPerTrade,
-          updated_at: new Date().toISOString()
-        })
+      await db.updateUserSettings({
+        user_id: user?.id || '',
+        total_capital: settings.totalCapital,
+        risk_per_trade: settings.riskPerTrade
+      })
 
-      if (error) throw error
       setSuccess('Settings saved successfully')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save settings')
@@ -284,38 +280,48 @@ function Settings() {
         {/* Trading Strategies */}
         <div className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-xl p-6 border border-white/20">
           <h2 className="text-xl font-semibold text-gray-900 mb-6">Trading Strategies</h2>
-          <div className="space-y-4">
-            <form onSubmit={handleAddStrategy} className="flex gap-4">
+          
+          {/* Add Strategy Form */}
+          <form onSubmit={handleAddStrategy} className="mb-6">
+            <div className="flex gap-4">
               <input
                 type="text"
                 value={newStrategy}
                 onChange={(e) => setNewStrategy(e.target.value)}
                 placeholder="Enter strategy name"
-                className="flex-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-lg"
+                className="flex-1 rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
               />
               <button
                 type="submit"
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200"
+                disabled={loading}
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
               >
                 Add Strategy
               </button>
-            </form>
-
-            <div className="mt-4">
-              <ul className="divide-y divide-gray-200">
-                {strategies.map((strategy) => (
-                  <li key={strategy} className="py-3 flex justify-between items-center">
-                    <span className="text-gray-900">{strategy}</span>
-                    <button
-                      onClick={() => handleDeleteStrategy(strategy)}
-                      className="text-red-600 hover:text-red-800 text-sm font-medium"
-                    >
-                      Delete
-                    </button>
-                  </li>
-                ))}
-              </ul>
             </div>
+          </form>
+
+          {/* Strategies List */}
+          <div className="space-y-2">
+            {strategies.map((strategy) => (
+              <div
+                key={strategy}
+                className="flex items-center justify-between p-3 bg-white/50 rounded-lg border border-gray-200"
+              >
+                <span className="text-gray-900">{strategy}</span>
+                <button
+                  onClick={() => handleDeleteStrategy(strategy)}
+                  className="text-red-600 hover:text-red-800"
+                >
+                  Delete
+                </button>
+              </div>
+            ))}
+            {strategies.length === 0 && (
+              <p className="text-gray-500 text-center py-4">
+                No strategies added yet
+              </p>
+            )}
           </div>
         </div>
 

@@ -50,7 +50,11 @@ function TradeForm() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
-  const [userSettings, setUserSettings] = useState<{ totalCapital: number; riskPerTrade: number }>({
+  const [strategies, setStrategies] = useState<string[]>([])
+  const [userSettings, setUserSettings] = useState<{ 
+    totalCapital: number;
+    riskPerTrade: number;
+  }>({
     totalCapital: 0,
     riskPerTrade: 1
   })
@@ -60,6 +64,7 @@ function TradeForm() {
   useEffect(() => {
     if (user?.id) {
       setFormData(prev => ({ ...prev, user_id: user.id }))
+      loadStrategies()
     }
   }, [user])
 
@@ -76,6 +81,15 @@ function TradeForm() {
   useEffect(() => {
     calculatePositionSize()
   }, [formData.entry_price, formData.stop_loss, userSettings])
+
+  const loadStrategies = async () => {
+    try {
+      const userStrategies = await db.getStrategies(user?.id || '')
+      setStrategies(userStrategies)
+    } catch (error) {
+      console.error('Error loading strategies:', error)
+    }
+  }
 
   const loadTrade = async () => {
     try {
@@ -111,13 +125,8 @@ function TradeForm() {
 
   const loadUserSettings = async () => {
     try {
-      const { data: settings, error } = await db.supabase
-        .from('user_settings')
-        .select('*')
-        .eq('user_id', user?.id)
-        .single()
-
-      if (!error && settings) {
+      const settings = await db.getUserSettings(user?.id || '')
+      if (settings) {
         setUserSettings({
           totalCapital: settings.total_capital || 0,
           riskPerTrade: settings.risk_per_trade || 1
@@ -415,19 +424,26 @@ function TradeForm() {
               />
             </div>
 
-            <div>
+            {/* Strategy Field */}
+            <div className="space-y-2">
               <label htmlFor="strategy" className="block text-sm font-medium text-gray-700">
                 Strategy
               </label>
-              <input
-                type="text"
-                name="strategy"
+              <select
                 id="strategy"
-                required
+                name="strategy"
                 value={formData.strategy}
                 onChange={handleChange}
-                className="mt-2 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-              />
+                className="block w-full rounded-lg border-gray-300 bg-white/50 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm transition-all duration-200"
+                required
+              >
+                <option value="">Select a strategy</option>
+                {strategies.map((strategy) => (
+                  <option key={strategy} value={strategy}>
+                    {strategy}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div>
