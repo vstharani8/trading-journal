@@ -192,7 +192,13 @@ function TradeHistory() {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+        <div 
+          className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"
+          role="status"
+          aria-label="Loading trades"
+        >
+          <span className="sr-only">Loading trades...</span>
+        </div>
       </div>
     )
   }
@@ -230,8 +236,11 @@ function TradeHistory() {
           </h2>
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
             <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">Date Range</label>
+              <label htmlFor="dateRange" className="block text-sm font-medium text-gray-700">
+                Date Range
+              </label>
               <select
+                id="dateRange"
                 className="block w-full rounded-lg border-gray-300 bg-white/50 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm transition-all duration-200"
                 value={filters.dateRange}
                 onChange={(e) => handleFilterChange('dateRange', e.target.value)}
@@ -244,8 +253,11 @@ function TradeHistory() {
             </div>
 
             <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">Asset</label>
+              <label htmlFor="asset" className="block text-sm font-medium text-gray-700">
+                Asset
+              </label>
               <select
+                id="asset"
                 className="block w-full rounded-lg border-gray-300 bg-white/50 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm transition-all duration-200"
                 value={filters.asset}
                 onChange={(e) => handleFilterChange('asset', e.target.value)}
@@ -258,8 +270,11 @@ function TradeHistory() {
             </div>
 
             <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">Strategy</label>
+              <label htmlFor="strategy" className="block text-sm font-medium text-gray-700">
+                Strategy
+              </label>
               <select
+                id="strategy"
                 className="block w-full rounded-lg border-gray-300 bg-white/50 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm transition-all duration-200"
                 value={filters.strategy}
                 onChange={(e) => handleFilterChange('strategy', e.target.value)}
@@ -272,8 +287,11 @@ function TradeHistory() {
             </div>
 
             <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">Status</label>
+              <label htmlFor="status" className="block text-sm font-medium text-gray-700">
+                Status
+              </label>
               <select
+                id="status"
                 className="block w-full rounded-lg border-gray-300 bg-white/50 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm transition-all duration-200"
                 value={filters.status}
                 onChange={(e) => handleFilterChange('status', e.target.value)}
@@ -285,8 +303,11 @@ function TradeHistory() {
             </div>
 
             <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">Profit Range</label>
+              <label htmlFor="profitRange" className="block text-sm font-medium text-gray-700">
+                Profit Range
+              </label>
               <select
+                id="profitRange"
                 className="block w-full rounded-lg border-gray-300 bg-white/50 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm transition-all duration-200"
                 value={filters.profitRange}
                 onChange={(e) => handleFilterChange('profitRange', e.target.value)}
