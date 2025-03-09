@@ -60,6 +60,7 @@ function TradeForm() {
   })
   const [suggestedSize, setSuggestedSize] = useState<number | null>(null)
   const [riskAmount, setRiskAmount] = useState<number | null>(null)
+  const [accountRisk, setAccountRisk] = useState<number>(0.5)
 
   useEffect(() => {
     if (user?.id) {
@@ -80,7 +81,7 @@ function TradeForm() {
 
   useEffect(() => {
     calculatePositionSize()
-  }, [formData.entry_price, formData.stop_loss, userSettings])
+  }, [formData.entry_price, formData.stop_loss, userSettings, accountRisk])
 
   const loadStrategies = async () => {
     try {
@@ -144,7 +145,7 @@ function TradeForm() {
       return
     }
 
-    const riskPercentage = userSettings.riskPerTrade / 100
+    const riskPercentage = accountRisk / 100
     const maxRiskAmount = userSettings.totalCapital * riskPercentage
     const priceRisk = Math.abs(formData.entry_price - formData.stop_loss)
     
@@ -508,17 +509,17 @@ function TradeForm() {
             </div>
 
             {/* Position Size Calculator */}
-            {formData.entry_price && formData.stop_loss && suggestedSize && riskAmount && (
+            {formData.entry_price && formData.stop_loss && userSettings.totalCapital > 0 && (
               <div className="sm:col-span-2 bg-indigo-50/50 rounded-xl p-4 space-y-2">
                 <h3 className="text-sm font-medium text-indigo-900">Position Size Calculator</h3>
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
                     <span className="text-gray-600">Risk Amount:</span>
-                    <span className="ml-2 text-indigo-700 font-medium">${riskAmount.toFixed(2)}</span>
+                    <span className="ml-2 text-indigo-700 font-medium">${riskAmount?.toFixed(2) || '0.00'}</span>
                   </div>
                   <div>
                     <span className="text-gray-600">Suggested Size:</span>
-                    <span className="ml-2 text-indigo-700 font-medium">{suggestedSize} shares</span>
+                    <span className="ml-2 text-indigo-700 font-medium">{suggestedSize || 0} shares</span>
                   </div>
                   <div>
                     <span className="text-gray-600">Risk per Share:</span>
@@ -526,15 +527,29 @@ function TradeForm() {
                       ${Math.abs(formData.entry_price - formData.stop_loss).toFixed(2)}
                     </span>
                   </div>
-                  <div>
-                    <span className="text-gray-600">Account Risk:</span>
-                    <span className="ml-2 text-indigo-700 font-medium">{userSettings.riskPerTrade}%</span>
+                  <div className="flex items-center">
+                    <span className="text-gray-600 mr-2">Account Risk:</span>
+                    <input
+                      type="number"
+                      value={accountRisk}
+                      onChange={(e) => {
+                        const newRisk = parseFloat(e.target.value) || 0.1;
+                        setAccountRisk(newRisk);
+                      }}
+                      onBlur={() => calculatePositionSize()}
+                      min="0.1"
+                      max="10"
+                      step="0.1"
+                      className="w-16 text-sm rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                    />
+                    <span className="ml-1 text-gray-600">%</span>
                   </div>
                 </div>
                 <button
                   type="button"
-                  onClick={() => setFormData(prev => ({ ...prev, quantity: suggestedSize }))}
+                  onClick={() => setFormData(prev => ({ ...prev, quantity: suggestedSize || 0 }))}
                   className="mt-2 text-sm text-indigo-600 hover:text-indigo-800 font-medium"
+                  disabled={!suggestedSize}
                 >
                   Apply Suggested Size
                 </button>
