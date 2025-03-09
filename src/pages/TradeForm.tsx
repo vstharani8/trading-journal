@@ -19,9 +19,9 @@ type TradeFormData = {
   screenshot: string | null
   status: 'open' | 'closed'
   user_id: string
-  market_conditions?: 'bullish' | 'bearish' | 'neutral'
-  trade_setup?: string
-  emotional_state?: 'confident' | 'uncertain' | 'neutral'
+  market_conditions?: 'bullish' | 'bearish' | 'neutral' | null
+  trade_setup?: string | null
+  emotional_state?: 'confident' | 'uncertain' | 'neutral' | null
 }
 
 const initialFormData: TradeFormData = {
@@ -39,7 +39,10 @@ const initialFormData: TradeFormData = {
   take_profit: null,
   screenshot: null,
   status: 'open',
-  user_id: ''
+  user_id: '',
+  market_conditions: null,
+  trade_setup: null,
+  emotional_state: null
 }
 
 function TradeForm() {
@@ -115,7 +118,10 @@ function TradeForm() {
         take_profit: trade.take_profit,
         screenshot: trade.screenshot,
         status: trade.status,
-        user_id: trade.user_id
+        user_id: trade.user_id,
+        market_conditions: (trade as any).market_conditions || null,
+        trade_setup: (trade as any).trade_setup || null,
+        emotional_state: (trade as any).emotional_state || null
       })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load trade')
@@ -177,21 +183,17 @@ function TradeForm() {
         throw new Error('Exit date is required for closed trades')
       }
 
-      // Extract only the fields that exist in the database
-      const {
-        market_conditions,
-        trade_setup,
-        emotional_state,
-        ...dbFormData
-      } = formData
-
+      // Prepare the submission data with all fields
       const submitData = {
-        ...dbFormData,
-        entry_date: new Date(dbFormData.entry_date).toISOString(),
-        exit_date: dbFormData.exit_date ? new Date(dbFormData.exit_date).toISOString() : null,
-        notes: dbFormData.notes || '', // Ensure notes is never null
-        fees: dbFormData.fees || 0, // Ensure fees is never null
-        strategy: dbFormData.strategy || 'Unknown' // Ensure strategy is never null
+        ...formData,
+        entry_date: new Date(formData.entry_date).toISOString(),
+        exit_date: formData.exit_date ? new Date(formData.exit_date).toISOString() : null,
+        notes: formData.notes || '', // Ensure notes is never null
+        fees: formData.fees || 0, // Ensure fees is never null
+        strategy: formData.strategy || 'Unknown', // Ensure strategy is never null
+        market_conditions: formData.market_conditions || null,
+        trade_setup: formData.trade_setup || null,
+        emotional_state: formData.emotional_state || null
       }
 
       if (id) {
@@ -210,7 +212,7 @@ function TradeForm() {
         setTimeout(() => navigate('/trades'), 1500)
       }
     } catch (err) {
-      console.error('Error saving trade:', err) // Add error logging
+      console.error('Error saving trade:', err)
       setError(err instanceof Error ? err.message : 'Failed to save trade')
     } finally {
       setLoading(false)
