@@ -24,6 +24,7 @@ interface Trade extends BaseTradeType {
   proficiency?: string | null;
   growth_areas?: string | null;
   exit_trigger?: string | null;
+  portfolioImpact?: number;
 }
 
 interface DashboardStats {
@@ -242,10 +243,26 @@ export default function Dashboard() {
     try {
       setLoading(true);
       const allTrades = await db.getAllTrades();
-      setTrades(allTrades);
+      
+      // Calculate portfolio impact for each trade
+      const tradesWithImpact = allTrades.map(trade => {
+        let portfolioImpact = 0;
+        if (trade.exit_price && trade.entry_price && trade.status === 'closed') {
+          const pl = trade.type === 'long'
+            ? (trade.exit_price - trade.entry_price) * trade.quantity
+            : (trade.entry_price - trade.exit_price) * trade.quantity;
+          const fees = trade.fees || 0;
+          const netPL = pl - fees;
+          const initialCapital = userSettings?.total_capital || 10000;
+          portfolioImpact = (netPL / initialCapital) * 100;
+        }
+        return { ...trade, portfolioImpact };
+      });
+
+      setTrades(tradesWithImpact);
       
       // Calculate dashboard statistics
-      const closedTrades = allTrades.filter(trade => trade.status === 'closed');
+      const closedTrades = tradesWithImpact.filter(trade => trade.status === 'closed');
       const profitableTrades = closedTrades.filter(trade => 
         trade.exit_price && trade.entry_price && 
         (trade.type === 'long' ? trade.exit_price > trade.entry_price : trade.exit_price < trade.entry_price)
@@ -298,12 +315,12 @@ export default function Dashboard() {
       });
 
       // Calculate monthly performance data
-      calculateMonthlyData(allTrades);
+      calculateMonthlyData(tradesWithImpact);
 
       // Calculate strategy performance data
       const strategyMap = new Map<string, StrategyPerformance>();
       
-      allTrades
+      tradesWithImpact
         .filter(trade => trade.exit_price !== null && trade.entry_price !== null && trade.strategy)
         .forEach(trade => {
           const strategy = trade.strategy || 'Unknown';
@@ -352,9 +369,9 @@ export default function Dashboard() {
       setStrategyPerformance(strategyData);
 
       // Calculate analytics for new fields
-      setProficiencyAnalytics(calculateTradeAnalytics(allTrades, 'proficiency'));
-      setGrowthAreasAnalytics(calculateTradeAnalytics(allTrades, 'growth_areas'));
-      setExitTriggerAnalytics(calculateTradeAnalytics(allTrades, 'exit_trigger'));
+      setProficiencyAnalytics(calculateTradeAnalytics(tradesWithImpact, 'proficiency'));
+      setGrowthAreasAnalytics(calculateTradeAnalytics(tradesWithImpact, 'growth_areas'));
+      setExitTriggerAnalytics(calculateTradeAnalytics(tradesWithImpact, 'exit_trigger'));
 
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load dashboard data');
@@ -737,6 +754,94 @@ export default function Dashboard() {
         {/* Trade Analysis */}
         <div className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-xl p-6 border border-white/20">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Trade Analysis</h2>
+          
+          {/* Portfolio Impact Section */}
+          <div className="mb-8">
+            <h3 className="text-md font-medium text-gray-700 mb-4">Portfolio Impact</h3>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Portfolio Impact Chart */}
+              <div className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={trades.filter(t => t.status === 'closed').slice(-10)}
+                    margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                    <XAxis
+                      dataKey="symbol"
+                      tick={{ fontSize: 12 }}
+                      tickLine={false}
+                      axisLine={false}
+                    />
+                    <YAxis
+                      tickFormatter={(value) => `${value}%`}
+                      tick={{ fontSize: 12 }}
+                      tickLine={false}
+                      axisLine={false}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                        borderRadius: '0.5rem',
+                        border: 'none',
+                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                      }}
+                      formatter={(value: number) => [`${value.toFixed(2)}%`, 'Portfolio Impact']}
+                    />
+                    <ReferenceLine y={0} stroke="#E5E7EB" />
+                    <Bar
+                      dataKey="portfolioImpact"
+                      name="Portfolio Impact"
+                      fill="#6366F1"
+                    >
+                      {trades.filter(t => t.status === 'closed').slice(-10).map((entry, index) => (
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={(entry.portfolioImpact ?? 0) >= 0 ? '#10B981' : '#EF4444'}
+                        />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* Portfolio Impact Stats */}
+              <div className="bg-white/70 backdrop-blur-lg rounded-xl shadow p-4 overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead>
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Symbol</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Impact</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {trades
+                      .filter(t => t.status === 'closed')
+                      .sort((a, b) => Math.abs(b.portfolioImpact!) - Math.abs(a.portfolioImpact!))
+                      .slice(0, 5)
+                      .map((trade, index) => (
+                        <tr key={trade.id} className={index % 2 === 0 ? 'bg-white/50' : 'bg-gray-50/50'}>
+                          <td className="px-4 py-3 text-sm font-medium text-gray-900">{trade.symbol}</td>
+                          <td className="px-4 py-3 text-sm text-right text-gray-900">
+                            {new Date(trade.exit_date!).toLocaleDateString()}
+                          </td>
+                          <td className={`px-4 py-3 text-sm text-right ${(trade.portfolioImpact ?? 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            {(trade.portfolioImpact ?? 0) >= 0 ? '+' : ''}{(trade.portfolioImpact ?? 0).toFixed(2)}%
+                          </td>
+                          <td className="px-4 py-3 text-sm text-right text-gray-900">
+                            {trade.type.toUpperCase()}
+                          </td>
+                        </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          {/* Existing Trade Analysis Content */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Proficiency Analysis */}
             <div>
