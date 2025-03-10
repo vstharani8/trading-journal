@@ -45,6 +45,12 @@ function Layout({ children }: LayoutProps) {
                   New Trade
                 </Link>
                 <Link
+                  to="/trading-notes"
+                  className={`${isActive('/trading-notes')} inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium`}
+                >
+                  Trading Notes
+                </Link>
+                <Link
                   to="/settings"
                   className={`${isActive('/settings')} inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium`}
                 >

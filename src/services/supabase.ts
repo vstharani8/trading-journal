@@ -3,11 +3,31 @@ import { createClient } from '@supabase/supabase-js'
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
+console.log('Supabase URL:', supabaseUrl ? 'Set' : 'Not set')
+console.log('Supabase Anon Key:', supabaseAnonKey ? 'Set' : 'Not set')
+
 if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase environment variables')
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+let supabaseClient;
+
+try {
+  console.log('Initializing Supabase client...')
+  supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: true
+    }
+  })
+  console.log('Supabase client initialized successfully')
+} catch (error) {
+  console.error('Error initializing Supabase client:', error)
+  throw error
+}
+
+export const supabase = supabaseClient
 
 // Database types
 export interface Trade {
@@ -53,6 +73,15 @@ export interface UserSettings {
   user_id: string
   total_capital: number
   risk_per_trade: number
+  created_at: string
+  updated_at: string
+}
+
+export interface TradingNote {
+  id: string
+  user_id: string
+  type: 'trade_notes' | 'trading_goals' | 'trading_plan' | 'mistakes_reflection'
+  content: string
   created_at: string
   updated_at: string
 }
@@ -218,6 +247,60 @@ export const db = {
         ai_feedback_generated_at: new Date().toISOString()
       })
       .eq('id', tradeId)
+
+    if (error) throw error
+  },
+
+  // Trading Notes operations
+  async getAllTradingNotes(): Promise<TradingNote[]> {
+    const { data, error } = await supabase
+      .from('trading_notes')
+      .select('*')
+      .order('created_at', { ascending: false })
+
+    if (error) throw error
+    return data || []
+  },
+
+  async getTradingNotesByType(type: TradingNote['type']): Promise<TradingNote[]> {
+    const { data, error } = await supabase
+      .from('trading_notes')
+      .select('*')
+      .eq('type', type)
+      .order('created_at', { ascending: false })
+
+    if (error) throw error
+    return data || []
+  },
+
+  async addTradingNote(note: Omit<TradingNote, 'id' | 'created_at' | 'updated_at'>): Promise<TradingNote> {
+    const { data, error } = await supabase
+      .from('trading_notes')
+      .insert([{ ...note, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }])
+      .select()
+      .single()
+
+    if (error) throw error
+    return data
+  },
+
+  async updateTradingNote(note: TradingNote): Promise<TradingNote> {
+    const { data, error } = await supabase
+      .from('trading_notes')
+      .update({ ...note, updated_at: new Date().toISOString() })
+      .eq('id', note.id)
+      .select()
+      .single()
+
+    if (error) throw error
+    return data
+  },
+
+  async deleteTradingNote(id: string): Promise<void> {
+    const { error } = await supabase
+      .from('trading_notes')
+      .delete()
+      .eq('id', id)
 
     if (error) throw error
   }
