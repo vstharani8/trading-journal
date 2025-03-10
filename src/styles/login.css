@@ -1,0 +1,202 @@
+@keyframes blob {
+  0% {
+    transform: translate(0px, 0px) scale(1);
+  }
+  33% {
+    transform: translate(30px, -50px) scale(1.1);
+  }
+  66% {
+    transform: translate(-20px, 20px) scale(0.9);
+  }
+  100% {
+    transform: translate(0px, 0px) scale(1);
+  }
+}
+
+.animate-blob {
+  animation: blob 7s infinite;
+}
+
+.animation-delay-2000 {
+  animation-delay: 2s;
+}
+
+.animation-delay-4000 {
+  animation-delay: 4s;
+}
+
+.bg-pattern {
+  background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%239C92AC' fill-opacity='0.08'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+}
+
+/* Market Pulse Animation */
+@keyframes marketPulse {
+  0% {
+    transform: translateY(0);
+    opacity: 0.6;
+  }
+  50% {
+    transform: translateY(-10px);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 0.6;
+  }
+}
+
+/* Price Ticker Animation */
+@keyframes tickerSlide {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-100%);
+  }
+}
+
+/* Chart Animation */
+@keyframes chartLine {
+  0% {
+    stroke-dashoffset: 1000;
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 0.8;
+  }
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 0.3;
+  }
+}
+
+@keyframes candlePulse {
+  0% {
+    opacity: 0.4;
+    transform: scaleY(0.95);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scaleY(1.05);
+  }
+  100% {
+    opacity: 0.4;
+    transform: scaleY(0.95);
+  }
+}
+
+.animate-market {
+  animation: marketPulse 3s infinite ease-in-out;
+}
+
+.animate-ticker {
+  animation: tickerSlide 20s infinite linear;
+}
+
+.animate-chart {
+  stroke-dasharray: 1000;
+  animation: chartLine 10s infinite linear;
+}
+
+.animate-candle {
+  animation: candlePulse 2s infinite ease-in-out;
+}
+
+/* Glass effect */
+.glass-dark {
+  background: rgba(17, 24, 39, 0.6);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+/* Modern gradient backgrounds */
+.bg-market-gradient {
+  background: linear-gradient(135deg, 
+    rgba(37, 99, 235, 0.1) 0%,
+    rgba(99, 102, 241, 0.1) 25%,
+    rgba(168, 85, 247, 0.1) 50%,
+    rgba(236, 72, 153, 0.1) 75%,
+    rgba(239, 68, 68, 0.1) 100%
+  );
+}
+
+.bg-glow {
+  position: relative;
+}
+
+.bg-glow::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 50%, 
+    rgba(59, 130, 246, 0.2), 
+    rgba(99, 102, 241, 0.2), 
+    rgba(0, 0, 0, 0)
+  );
+  z-index: -1;
+}
+
+/* Input styles */
+.input-modern {
+  background: rgba(17, 24, 39, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: all 0.3s ease;
+}
+
+.input-modern:focus {
+  background: rgba(17, 24, 39, 0.8);
+  border-color: rgba(59, 130, 246, 0.5);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+/* Button glow effect */
+.btn-glow {
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-glow::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 200%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  transition: 0.5s;
+}
+
+.btn-glow:hover::before {
+  left: 100%;
+}
+
+/* Input focus ring custom color */
+.focus-ring-custom {
+  --tw-ring-color: rgba(59, 130, 246, 0.4);
+  --tw-ring-offset-color: rgb(17, 24, 39);
+}
+
+/* Dark theme custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(17, 24, 39, 0.1);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(59, 130, 246, 0.5);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(59, 130, 246, 0.7);
+} 
