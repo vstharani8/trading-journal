@@ -29,6 +29,16 @@ export interface Trade {
   status: 'open' | 'closed'
   created_at: string
   updated_at: string
+  ai_feedback_performance: string | null
+  ai_feedback_lessons: string | null
+  ai_feedback_mistakes: string | null
+  ai_feedback_generated_at: string | null
+  market_conditions?: 'bullish' | 'bearish' | 'neutral' | null
+  trade_setup?: string | null
+  emotional_state?: 'confident' | 'uncertain' | 'neutral' | null
+  proficiency?: string | null
+  growth_areas?: string | null
+  exit_trigger?: string | null
 }
 
 export interface Strategy {
@@ -187,6 +197,27 @@ export const db = {
     const { error } = await supabase
       .from('trades')
       .insert(data.trades)
+
+    if (error) throw error
+  },
+
+  async updateTradeFeedback(
+    tradeId: string,
+    feedback: {
+      performance: string;
+      lessons: string;
+      mistakes: string;
+    }
+  ): Promise<void> {
+    const { error } = await supabase
+      .from('trades')
+      .update({
+        ai_feedback_performance: feedback.performance,
+        ai_feedback_lessons: feedback.lessons,
+        ai_feedback_mistakes: feedback.mistakes,
+        ai_feedback_generated_at: new Date().toISOString()
+      })
+      .eq('id', tradeId)
 
     if (error) throw error
   }
