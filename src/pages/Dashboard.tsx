@@ -42,6 +42,9 @@ interface MonthlyData {
   winRate: number;
   tradeCount: number;
   averageReturn: number;
+  averageGain: number;
+  averageLoss: number;
+  averagePositionSize: number;
 }
 
 interface StrategyPerformance {
@@ -121,7 +124,48 @@ export default function Dashboard() {
         });
       });
 
-      console.log(`Trades for ${format(month, 'MMM yyyy')}:`, monthTrades.length);
+      const closedTrades = monthTrades.filter(t => t.status === 'closed');
+      
+      // Calculate win rate and profitable trades
+      const profitableTrades = closedTrades.filter(t => {
+        if (!t.exit_price || !t.entry_price) return false;
+        return t.type === 'long' 
+          ? t.exit_price > t.entry_price 
+          : t.exit_price < t.entry_price;
+      });
+      
+      const winRate = closedTrades.length > 0
+        ? (profitableTrades.length / closedTrades.length) * 100
+        : 0;
+
+      // Calculate gains and losses
+      const gains = profitableTrades.map(t => {
+        if (!t.exit_price || !t.entry_price) return 0;
+        return ((t.type === 'long' ? t.exit_price - t.entry_price : t.entry_price - t.exit_price) / t.entry_price) * 100;
+      });
+
+      const losses = closedTrades
+        .filter(t => !profitableTrades.includes(t))
+        .map(t => {
+          if (!t.exit_price || !t.entry_price) return 0;
+          return ((t.type === 'long' ? t.exit_price - t.entry_price : t.entry_price - t.exit_price) / t.entry_price) * 100;
+        });
+
+      const averageGain = gains.length > 0 
+        ? gains.reduce((sum, gain) => sum + gain, 0) / gains.length
+        : 0;
+
+      const averageLoss = losses.length > 0
+        ? losses.reduce((sum, loss) => sum + loss, 0) / losses.length
+        : 0;
+
+      // Calculate average position size
+      const averagePositionSize = closedTrades.length > 0
+        ? closedTrades.reduce((sum, trade) => {
+            const positionSize = (trade.quantity * trade.entry_price!) / (userSettings?.total_capital || 10000) * 100;
+            return sum + positionSize;
+          }, 0) / closedTrades.length
+        : 0;
 
       const profitLoss = monthTrades.reduce((sum, trade) => {
         if (!trade.exit_price || !trade.entry_price) return sum;
@@ -131,23 +175,8 @@ export default function Dashboard() {
         return sum + pl - (trade.fees || 0);
       }, 0);
 
-      console.log(`Profit/Loss for ${format(month, 'MMM yyyy')}:`, profitLoss);
-
-      // Ensure we have a valid initial capital value
-      const initialCapital = userSettings?.total_capital || 10000; // Default to 10000 if not set
+      const initialCapital = userSettings?.total_capital || 10000;
       const profitLossPercentage = (profitLoss / initialCapital) * 100;
-
-      console.log(`P/L % for ${format(month, 'MMM yyyy')}:`, profitLossPercentage);
-
-      const closedTrades = monthTrades.filter(t => t.status === 'closed');
-      const winRate = closedTrades.length > 0
-        ? (closedTrades.filter(t => {
-            if (!t.exit_price || !t.entry_price) return false;
-            return t.type === 'long' 
-              ? t.exit_price > t.entry_price 
-              : t.exit_price < t.entry_price;
-          }).length / closedTrades.length) * 100
-        : 0;
 
       const averageReturn = closedTrades.length > 0
         ? profitLoss / closedTrades.length
@@ -159,7 +188,10 @@ export default function Dashboard() {
         profitLossPercentage,
         winRate,
         tradeCount: closedTrades.length,
-        averageReturn
+        averageReturn,
+        averageGain,
+        averageLoss,
+        averagePositionSize
       };
     });
 
@@ -549,45 +581,82 @@ export default function Dashboard() {
             </div>
 
             {/* Monthly Statistics */}
-            <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl p-4">
-                <h3 className="text-sm font-medium text-gray-500">Average Win Rate</h3>
-                <p className="mt-2 text-2xl font-semibold text-gray-900">
-                  {(monthlyData.reduce((sum, d) => sum + d.winRate, 0) / monthlyData.length).toFixed(1)}%
-                </p>
-                <p className="mt-1 text-sm text-gray-500">
-                  over the period
-                </p>
+            <div className="lg:col-span-2 grid grid-cols-1 gap-4">
+              {/* Best/Worst Month Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-4">
+                  <h3 className="text-sm font-medium text-gray-500">Best Month</h3>
+                  {monthlyData.length > 0 ? (
+                    <>
+                      <p className="mt-2 text-2xl font-semibold text-gray-900">
+                        {monthlyData.reduce((best, d) => Math.max(best, d.profitLossPercentage), -Infinity).toFixed(2)}%
+                      </p>
+                      <p className="mt-1 text-sm text-gray-500">
+                        {monthlyData.reduce((bestMonth, d) => 
+                          d.profitLossPercentage === monthlyData.reduce((max, m) => Math.max(max, m.profitLossPercentage), -Infinity) 
+                            ? d.month 
+                            : bestMonth, 
+                          ''
+                        )}
+                      </p>
+                    </>
+                  ) : (
+                    <p className="mt-2 text-2xl font-semibold text-gray-900">N/A</p>
+                  )}
+                </div>
+
+                <div className="bg-gradient-to-br from-red-50 to-rose-50 rounded-xl p-4">
+                  <h3 className="text-sm font-medium text-gray-500">Worst Month</h3>
+                  {monthlyData.length > 0 ? (
+                    <>
+                      <p className="mt-2 text-2xl font-semibold text-gray-900">
+                        {monthlyData.reduce((worst, d) => Math.min(worst, d.profitLossPercentage), Infinity).toFixed(2)}%
+                      </p>
+                      <p className="mt-1 text-sm text-gray-500">
+                        {monthlyData.reduce((worstMonth, d) => 
+                          d.profitLossPercentage === monthlyData.reduce((min, m) => Math.min(min, m.profitLossPercentage), Infinity) 
+                            ? d.month 
+                            : worstMonth, 
+                          ''
+                        )}
+                      </p>
+                    </>
+                  ) : (
+                    <p className="mt-2 text-2xl font-semibold text-gray-900">N/A</p>
+                  )}
+                </div>
               </div>
 
-              <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-4">
-                <h3 className="text-sm font-medium text-gray-500">Total Trades</h3>
-                <p className="mt-2 text-2xl font-semibold text-gray-900">
-                  {monthlyData.reduce((sum, d) => sum + d.tradeCount, 0)}
-                </p>
-                <p className="mt-1 text-sm text-gray-500">
-                  in last 6 months
-                </p>
-              </div>
-
-              <div className="bg-gradient-to-br from-blue-50 to-sky-50 rounded-xl p-4">
-                <h3 className="text-sm font-medium text-gray-500">Best Month</h3>
-                <p className="mt-2 text-2xl font-semibold text-gray-900">
-                  {monthlyData.reduce((best, d) => Math.max(best, d.profitLossPercentage), -Infinity).toFixed(2)}%
-                </p>
-                <p className="mt-1 text-sm text-gray-500">
-                  return
-                </p>
-              </div>
-
-              <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl p-4">
-                <h3 className="text-sm font-medium text-gray-500">Average Trade Return</h3>
-                <p className="mt-2 text-2xl font-semibold text-gray-900">
-                  ${(monthlyData.reduce((sum, d) => sum + d.averageReturn, 0) / monthlyData.length).toFixed(2)}
-                </p>
-                <p className="mt-1 text-sm text-gray-500">
-                  per trade
-                </p>
+              {/* Monthly Statistics Table */}
+              <div className="bg-white/70 backdrop-blur-lg rounded-xl shadow p-4 overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead>
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Month</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Win %</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Avg Gain</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Avg Loss</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Avg Pos Size</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Trades</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {monthlyData.map((data, index) => (
+                      <tr key={data.month} className={index % 2 === 0 ? 'bg-white/50' : 'bg-gray-50/50'}>
+                        <td className="px-4 py-3 text-sm font-medium text-gray-900">{data.month}</td>
+                        <td className="px-4 py-3 text-sm text-right text-gray-900">{data.winRate.toFixed(1)}%</td>
+                        <td className="px-4 py-3 text-sm text-right text-green-600">
+                          {data.averageGain > 0 ? `+${data.averageGain.toFixed(2)}%` : '0.00%'}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-right text-red-600">
+                          {data.averageLoss < 0 ? `${data.averageLoss.toFixed(2)}%` : '0.00%'}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-right text-gray-900">{data.averagePositionSize.toFixed(2)}%</td>
+                        <td className="px-4 py-3 text-sm text-right text-gray-900">{data.tradeCount}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>
