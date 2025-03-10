@@ -763,7 +763,12 @@ export default function Dashboard() {
               <div className="h-80">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart
-                    data={trades.filter(t => t.status === 'closed').slice(-10)}
+                    data={trades
+                      .filter(t => t.status === 'closed')
+                      .sort((a, b) => new Date(b.exit_date!).getTime() - new Date(a.exit_date!).getTime())
+                      .slice(0, 10)
+                      .reverse()
+                    }
                     margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
                   >
                     <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
@@ -787,6 +792,10 @@ export default function Dashboard() {
                         boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
                       }}
                       formatter={(value: number) => [`${value.toFixed(2)}%`, 'Portfolio Impact']}
+                      labelFormatter={(label) => {
+                        const trade = trades.find(t => t.symbol === label);
+                        return `${label} (${new Date(trade?.exit_date!).toLocaleDateString()})`;
+                      }}
                     />
                     <ReferenceLine y={0} stroke="#E5E7EB" />
                     <Bar
@@ -794,12 +803,17 @@ export default function Dashboard() {
                       name="Portfolio Impact"
                       fill="#6366F1"
                     >
-                      {trades.filter(t => t.status === 'closed').slice(-10).map((entry, index) => (
-                        <Cell
-                          key={`cell-${index}`}
-                          fill={(entry.portfolioImpact ?? 0) >= 0 ? '#10B981' : '#EF4444'}
-                        />
-                      ))}
+                      {trades
+                        .filter(t => t.status === 'closed')
+                        .sort((a, b) => new Date(b.exit_date!).getTime() - new Date(a.exit_date!).getTime())
+                        .slice(0, 10)
+                        .reverse()
+                        .map((entry, index) => (
+                          <Cell
+                            key={`cell-${index}`}
+                            fill={(entry.portfolioImpact ?? 0) >= 0 ? '#10B981' : '#EF4444'}
+                          />
+                        ))}
                     </Bar>
                   </BarChart>
                 </ResponsiveContainer>
@@ -819,7 +833,7 @@ export default function Dashboard() {
                   <tbody className="divide-y divide-gray-200">
                     {trades
                       .filter(t => t.status === 'closed')
-                      .sort((a, b) => Math.abs(b.portfolioImpact!) - Math.abs(a.portfolioImpact!))
+                      .sort((a, b) => new Date(b.exit_date!).getTime() - new Date(a.exit_date!).getTime())
                       .slice(0, 5)
                       .map((trade, index) => (
                         <tr key={trade.id} className={index % 2 === 0 ? 'bg-white/50' : 'bg-gray-50/50'}>
