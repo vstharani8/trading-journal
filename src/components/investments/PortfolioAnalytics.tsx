@@ -45,7 +45,7 @@ export const PortfolioAnalytics: React.FC<PortfolioAnalyticsProps> = ({ analytic
                 <div className="mb-6">
                     <h3 className="text-sm font-medium text-gray-500 mb-3">Top Performers</h3>
                     <div className="space-y-2">
-                        {analytics.topPerformers.map((performer, index) => (
+                        {analytics.topPerformers.map((performer) => (
                             <div key={performer.symbol} className="flex justify-between items-center p-2 bg-gray-50 rounded">
                                 <span className="font-medium">{performer.symbol}</span>
                                 <span className={performer.gainPercentage >= 0 ? 'text-green-600' : 'text-red-600'}>
