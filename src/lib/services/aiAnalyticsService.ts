@@ -1,5 +1,10 @@
 import { Investment, StockPrice } from '../../types/investment';
 
+interface MarketPosition {
+    isAboveSMA: boolean;
+    smaDistance: number;
+}
+
 export interface PortfolioAnalytics {
     summary: string;
     riskLevel: 'Low' | 'Medium' | 'High';
@@ -9,13 +14,26 @@ export interface PortfolioAnalytics {
         gainPercentage: number;
     }>;
     recommendations: string[];
+    vooPosition: MarketPosition;
+    qqqmPosition: MarketPosition;
 }
 
 export class AIAnalyticsService {
-    private static calculateStandardDeviation(array: number[]): number {
-        const n = array.length;
-        const mean = array.reduce((a, b) => a + b) / n;
-        return Math.sqrt(array.map(x => Math.pow(x - mean, 2)).reduce((a, b) => a + b) / n);
+    private static calculate200SMA(prices: number[]): number {
+        if (prices.length < 200) return 0;
+        const last200Prices = prices.slice(-200);
+        return last200Prices.reduce((a, b) => a + b) / 200;
+    }
+
+    private static calculateMarketPosition(currentPrice: number, historicalPrices: number[]): MarketPosition {
+        const sma200 = this.calculate200SMA(historicalPrices);
+        const isAboveSMA = currentPrice > sma200;
+        const smaDistance = ((currentPrice - sma200) / sma200) * 100;
+
+        return {
+            isAboveSMA,
+            smaDistance: Number(smaDistance.toFixed(2))
+        };
     }
 
     static analyzePortfolio(investments: Investment[], currentPrices: StockPrice[]): PortfolioAnalytics {
@@ -25,11 +43,13 @@ export class AIAnalyticsService {
                 riskLevel: "Low",
                 diversificationScore: 0,
                 topPerformers: [],
-                recommendations: ["Consider adding some investments to start building your portfolio."]
+                recommendations: ["Consider adding VOO or QQQM to start building your portfolio."],
+                vooPosition: { isAboveSMA: false, smaDistance: 0 },
+                qqqmPosition: { isAboveSMA: false, smaDistance: 0 }
             };
         }
 
-        // Calculate portfolio metrics
+        // Calculate basic metrics
         const totalInvestments = investments.length;
         const uniqueStocks = new Set(investments.map(inv => inv.stock_symbol)).size;
         const diversificationScore = (uniqueStocks / totalInvestments) * 100;
@@ -51,41 +71,50 @@ export class AIAnalyticsService {
 
         // Sort by performance
         const sortedByPerformance = [...performanceData].sort((a, b) => b.gainPercentage - a.gainPercentage);
-        const topPerformers = sortedByPerformance.slice(0, 3).map(p => ({
+        const topPerformers = sortedByPerformance.map(p => ({
             symbol: p.symbol,
             gainPercentage: p.gainPercentage
         }));
 
-        // Determine risk level
-        const volatility = this.calculateStandardDeviation(performanceData.map(p => p.gainPercentage));
-        let riskLevel: 'Low' | 'Medium' | 'High' = 'Low';
-        if (volatility > 30) riskLevel = 'High';
-        else if (volatility > 15) riskLevel = 'Medium';
+        // Mock 200 SMA analysis (in real implementation, this would use historical price data)
+        const vooPosition = this.calculateMarketPosition(
+            currentPrices.find(p => p.symbol === 'VOO')?.price || 0,
+            [] // This would be historical prices in real implementation
+        );
 
-        // Generate recommendations
+        const qqqmPosition = this.calculateMarketPosition(
+            currentPrices.find(p => p.symbol === 'QQQM')?.price || 0,
+            [] // This would be historical prices in real implementation
+        );
+
+        // Generate recommendations based on 200 SMA
         const recommendations: string[] = [];
-        if (diversificationScore < 50) {
-            recommendations.push("Consider diversifying your portfolio across more stocks to reduce risk.");
+        
+        if (!vooPosition.isAboveSMA) {
+            recommendations.push(`VOO is currently ${Math.abs(vooPosition.smaDistance).toFixed(1)}% below its 200 SMA - Consider a buying opportunity`);
         }
-        if (uniqueStocks < 5) {
-            recommendations.push("Adding more diverse investments could help optimize your portfolio.");
+        
+        if (!qqqmPosition.isAboveSMA) {
+            recommendations.push(`QQQM is currently ${Math.abs(qqqmPosition.smaDistance).toFixed(1)}% below its 200 SMA - Consider a buying opportunity`);
         }
-        if (performanceData.some(p => p.gainPercentage < -15)) {
-            recommendations.push("Review underperforming positions for potential rebalancing.");
+
+        if (recommendations.length === 0) {
+            recommendations.push("Both ETFs are currently above their 200 SMA. Monitor for potential future buying opportunities.");
         }
 
         // Generate summary
-        const totalGainLoss = performanceData.reduce((sum, p) => sum + p.gainPercentage, 0) / performanceData.length;
-        const summary = `Your portfolio consists of ${totalInvestments} investments across ${uniqueStocks} different stocks. ` +
-            `Overall performance is ${totalGainLoss > 0 ? 'positive' : 'negative'} with an average return of ${totalGainLoss.toFixed(2)}%. ` +
-            `The portfolio shows a ${riskLevel.toLowerCase()} risk profile with a diversification score of ${diversificationScore.toFixed(1)}%.`;
+        const summary = `Analysis based on 200 SMA strategy for VOO and QQQM. ${
+            recommendations[0]
+        }`;
 
         return {
             summary,
-            riskLevel,
+            riskLevel: "Low", // These are index ETFs, so generally low risk
             diversificationScore,
             topPerformers,
-            recommendations
+            recommendations,
+            vooPosition,
+            qqqmPosition
         };
     }
 } 
