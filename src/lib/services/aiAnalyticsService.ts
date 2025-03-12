@@ -19,19 +19,13 @@ export interface PortfolioAnalytics {
 }
 
 export class AIAnalyticsService {
-    private static calculateStandardDeviation(array: number[]): number {
-        const n = array.length;
-        const mean = array.reduce((a, b) => a + b) / n;
-        return Math.sqrt(array.map(x => Math.pow(x - mean, 2)).reduce((a, b) => a + b) / n);
-    }
-
     private static calculate200SMA(prices: number[]): number {
         if (prices.length < 200) return 0;
         const last200Prices = prices.slice(-200);
         return last200Prices.reduce((a, b) => a + b) / 200;
     }
 
-    private static calculateMarketPosition(symbol: string, currentPrice: number, historicalPrices: number[]): MarketPosition {
+    private static calculateMarketPosition(currentPrice: number, historicalPrices: number[]): MarketPosition {
         const sma200 = this.calculate200SMA(historicalPrices);
         const isAboveSMA = currentPrice > sma200;
         const smaDistance = ((currentPrice - sma200) / sma200) * 100;
@@ -83,12 +77,12 @@ export class AIAnalyticsService {
         }));
 
         // Mock 200 SMA analysis (in real implementation, this would use historical price data)
-        const vooPosition = this.calculateMarketPosition('VOO', 
+        const vooPosition = this.calculateMarketPosition(
             currentPrices.find(p => p.symbol === 'VOO')?.price || 0,
             [] // This would be historical prices in real implementation
         );
 
-        const qqqmPosition = this.calculateMarketPosition('QQQM',
+        const qqqmPosition = this.calculateMarketPosition(
             currentPrices.find(p => p.symbol === 'QQQM')?.price || 0,
             [] // This would be historical prices in real implementation
         );
