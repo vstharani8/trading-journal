@@ -2,10 +2,20 @@ import React from 'react';
 import { PortfolioAnalytics as PortfolioAnalyticsType } from '../../lib/services/aiAnalyticsService';
 
 interface PortfolioAnalyticsProps {
-    analytics: PortfolioAnalyticsType;
+    analytics: PortfolioAnalyticsType | null;
 }
 
 export const PortfolioAnalytics: React.FC<PortfolioAnalyticsProps> = ({ analytics }) => {
+    if (!analytics) {
+        return (
+            <div className="bg-white rounded-xl shadow-lg p-6">
+                <div className="text-center text-gray-500">
+                    <p>No analysis available. Click "Generate Analysis" to analyze your portfolio.</p>
+                </div>
+            </div>
+        );
+    }
+
     const getRiskLevelColor = (riskLevel: 'Low' | 'Medium' | 'High') => {
         switch (riskLevel) {
             case 'Low': return 'text-green-600';
