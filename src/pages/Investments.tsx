@@ -2,10 +2,8 @@ import { useEffect, useState } from 'react';
 import { Investment, InvestmentFormData, StockPrice, PortfolioPerformance } from '../types/investment';
 import { InvestmentList } from '../components/investments/InvestmentList';
 import { PortfolioSummary } from '../components/investments/PortfolioSummary';
-import { PortfolioAnalytics } from '../components/investments/PortfolioAnalytics';
 import { InvestmentModal } from '../components/investments/InvestmentModal';
 import { StockService } from '../lib/services/stockService';
-import { AIAnalyticsService, PortfolioAnalytics as PortfolioAnalyticsType } from '../lib/services/aiAnalyticsService';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -23,8 +21,6 @@ export default function Investments() {
         portfolioHistory: []
     });
     const [loading, setLoading] = useState(true);
-    const [analytics, setAnalytics] = useState<PortfolioAnalyticsType | null>(null);
-    const [isAnalyzing, setIsAnalyzing] = useState(false);
 
     useEffect(() => {
         fetchInvestments();
@@ -35,22 +31,6 @@ export default function Investments() {
             updateStockPrices();
         }
     }, [investments]);
-
-    const generateAnalytics = async () => {
-        if (investments.length === 0 || currentPrices.length === 0) {
-            return;
-        }
-        
-        setIsAnalyzing(true);
-        try {
-            const portfolioAnalytics = AIAnalyticsService.analyzePortfolio(investments, currentPrices);
-            setAnalytics(portfolioAnalytics);
-        } catch (error) {
-            console.error('Error generating analytics:', error);
-        } finally {
-            setIsAnalyzing(false);
-        }
-    };
 
     const fetchInvestments = async () => {
         try {
@@ -111,7 +91,7 @@ export default function Investments() {
         }
     };
 
-    const handleAddInvestment = async (formData: InvestmentFormData) => {
+    const handleSaveInvestment = async (formData: InvestmentFormData) => {
         try {
             if (!user) {
                 throw new Error('User not authenticated');
@@ -186,82 +166,46 @@ export default function Investments() {
         }
     };
 
-    const openModal = (investment?: Investment) => {
-        if (investment) {
-            setEditingInvestment(investment);
-        }
-        setIsModalOpen(true);
-    };
-
-    const closeModal = () => {
-        setIsModalOpen(false);
-        setEditingInvestment(null);
-    };
-
-    if (loading) {
-        return (
-            <div className="flex items-center justify-center min-h-screen">
-                <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900"></div>
-            </div>
-        );
-    }
-
     return (
-        <div className="container mx-auto px-4 py-8 max-w-7xl">
+        <div className="container mx-auto px-4 py-8">
             <div className="flex justify-between items-center mb-8">
                 <h1 className="text-3xl font-bold">Investment Portfolio</h1>
                 <button
-                    onClick={() => openModal()}
-                    className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                    onClick={() => {
+                        setEditingInvestment(null);
+                        setIsModalOpen(true);
+                    }}
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg"
                 >
-                    <svg className="-ml-1 mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
-                    </svg>
                     Add Investment
                 </button>
             </div>
-            
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-                <PortfolioSummary performance={portfolioPerformance} />
-                <div>
-                    <div className="flex justify-between items-center mb-4">
-                        <h2 className="text-xl font-semibold">AI Portfolio Analysis</h2>
-                        <button
-                            onClick={generateAnalytics}
-                            disabled={isAnalyzing || investments.length === 0}
-                            className={`inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white 
-                                ${isAnalyzing || investments.length === 0 ? 'bg-gray-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700'} 
-                                focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500`}
-                        >
-                            {isAnalyzing ? (
-                                <>
-                                    <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                    </svg>
-                                    Analyzing...
-                                </>
-                            ) : 'Generate Analysis'}
-                        </button>
+
+            {loading ? (
+                <div>Loading...</div>
+            ) : (
+                <>
+                    <div className="mb-8">
+                        <PortfolioSummary performance={portfolioPerformance} />
                     </div>
-                    {analytics && <PortfolioAnalytics analytics={analytics} />}
-                </div>
-            </div>
-            
-            <div className="bg-white rounded-xl shadow-lg p-6">
-                <h2 className="text-2xl font-bold mb-4">Your Investments</h2>
-                <InvestmentList 
-                    investments={investments}
-                    currentPrices={currentPrices}
-                    onEdit={openModal}
-                    onDelete={handleDeleteInvestment}
-                />
-            </div>
+
+                    <InvestmentList
+                        investments={investments}
+                        currentPrices={currentPrices}
+                        onEdit={(investment) => {
+                            setEditingInvestment(investment);
+                            setIsModalOpen(true);
+                        }}
+                        onDelete={handleDeleteInvestment}
+                    />
+                </>
+            )}
 
             <InvestmentModal
                 isOpen={isModalOpen}
-                onClose={closeModal}
-                onSubmit={editingInvestment ? handleEditInvestment : handleAddInvestment}
+                onClose={() => setIsModalOpen(false)}
+                onSubmit={editingInvestment ? handleEditInvestment : handleSaveInvestment}
+                mode={editingInvestment ? 'edit' : 'add'}
                 initialData={editingInvestment ? {
                     stock_symbol: editingInvestment.stock_symbol,
                     purchase_date: new Date(editingInvestment.purchase_date).toISOString().split('T')[0],
@@ -269,7 +213,6 @@ export default function Investments() {
                     number_of_shares: editingInvestment.number_of_shares,
                     notes: editingInvestment.notes
                 } : undefined}
-                mode={editingInvestment ? 'edit' : 'add'}
             />
         </div>
     );

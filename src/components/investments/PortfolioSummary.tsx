@@ -31,36 +31,36 @@ export const PortfolioSummary: React.FC<PortfolioSummaryProps> = ({ performance 
     };
 
     return (
-        <div className="bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl shadow-lg overflow-hidden">
-            <div className="px-6 py-4">
-                <h2 className="text-2xl font-bold text-white">Portfolio Summary</h2>
-            </div>
-            
-            <div className="bg-white p-6">
-                <div className="grid grid-cols-1 gap-6">
-                    <div className="space-y-1">
-                        <h3 className="text-sm font-medium text-gray-500">Total Value</h3>
-                        <div className="flex items-baseline">
-                            <p className="text-3xl font-bold text-gray-900">
-                                {formatCurrency(totalValue)}
-                            </p>
+        <div className="space-y-6">
+            <div className="bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl shadow-lg overflow-hidden">
+                <div className="px-6 py-4">
+                    <h2 className="text-2xl font-bold text-white">Portfolio Summary</h2>
+                </div>
+                
+                <div className="bg-white p-6">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div>
+                            <h3 className="text-sm font-medium text-gray-500 mb-1">Total Value</h3>
+                            <div className="flex items-baseline">
+                                <p className="text-3xl font-bold text-gray-900">
+                                    {formatCurrency(totalValue)}
+                                </p>
+                            </div>
+                            <p className="text-sm text-gray-500 mt-1">Current portfolio value</p>
                         </div>
-                        <p className="text-sm text-gray-500">Current portfolio value</p>
-                    </div>
-                    
-                    <div className="space-y-1">
-                        <h3 className="text-sm font-medium text-gray-500">Total Cost</h3>
-                        <div className="flex items-baseline">
-                            <p className="text-3xl font-bold text-gray-900">
-                                {formatCurrency(totalCost)}
-                            </p>
+                        
+                        <div>
+                            <h3 className="text-sm font-medium text-gray-500 mb-1">Total Cost</h3>
+                            <div className="flex items-baseline">
+                                <p className="text-3xl font-bold text-gray-900">
+                                    {formatCurrency(totalCost)}
+                                </p>
+                            </div>
+                            <p className="text-sm text-gray-500 mt-1">Initial investment</p>
                         </div>
-                        <p className="text-sm text-gray-500">Initial investment</p>
-                    </div>
-                    
-                    <div className="space-y-1">
-                        <h3 className="text-sm font-medium text-gray-500">Total Gain/Loss</h3>
-                        <div className="flex flex-col">
+                        
+                        <div>
+                            <h3 className="text-sm font-medium text-gray-500 mb-1">Total Gain/Loss</h3>
                             <div className="flex items-baseline gap-3">
                                 <p className={`text-3xl font-bold ${totalGainLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                                     {formatCurrency(totalGainLoss)}
@@ -69,9 +69,18 @@ export const PortfolioSummary: React.FC<PortfolioSummaryProps> = ({ performance 
                                     ({formatPercentage(totalGainLossPercentage)})
                                 </p>
                             </div>
+                            <p className="text-sm text-gray-500 mt-1">Total return</p>
                         </div>
-                        <p className="text-sm text-gray-500">Total return</p>
                     </div>
+                </div>
+            </div>
+
+            <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+                <div className="flex justify-between items-center px-6 py-4">
+                    <h2 className="text-2xl font-bold text-gray-900">AI Portfolio Analysis</h2>
+                    <button className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-6 py-2 rounded-lg transition-colors">
+                        Generate Analysis
+                    </button>
                 </div>
             </div>
         </div>
