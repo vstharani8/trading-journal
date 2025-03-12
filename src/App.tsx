@@ -8,6 +8,7 @@ import Settings from './pages/Settings'
 import Login from './pages/Login'
 import SignUp from './pages/SignUp'
 import Notes from './pages/Notes'
+import InvestmentsPage from './pages/Investments'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
@@ -70,6 +71,16 @@ function AuthenticatedRoutes() {
           <ProtectedRoute>
             <Layout>
               <TradeForm />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/investments"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <InvestmentsPage />
             </Layout>
           </ProtectedRoute>
         }
