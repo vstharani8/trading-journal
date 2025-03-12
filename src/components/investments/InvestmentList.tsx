@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Investment, StockPrice } from '../../types/investment';
 
 interface InvestmentListProps {
@@ -8,31 +8,67 @@ interface InvestmentListProps {
     onDelete: (investment: Investment) => void;
 }
 
+interface GroupedInvestment {
+    symbol: string;
+    totalShares: number;
+    totalCost: number;
+    investments: Investment[];
+    currentPrice: number | null;
+    currentValue: number;
+    gainLoss: number;
+    gainLossPercentage: number;
+}
+
 export const InvestmentList: React.FC<InvestmentListProps> = ({ 
     investments, 
     currentPrices, 
     onEdit, 
     onDelete 
 }) => {
+    const [expandedSymbols, setExpandedSymbols] = useState<Set<string>>(new Set());
+
     const getStockPrice = (symbol: string): number | null => {
         const stockPrice = currentPrices.find(price => price.symbol === symbol);
         return stockPrice ? stockPrice.price : null;
     };
 
-    const calculatePerformance = (investment: Investment) => {
+    // Group investments by symbol and calculate totals
+    const groupedInvestments = investments.reduce((acc: { [key: string]: GroupedInvestment }, investment) => {
         const currentPrice = getStockPrice(investment.stock_symbol);
-        if (!currentPrice) return null;
+        const investmentCost = investment.purchase_price * investment.number_of_shares;
+        const currentValue = currentPrice ? currentPrice * investment.number_of_shares : 0;
 
-        const currentValue = currentPrice * investment.number_of_shares;
-        const costBasis = investment.purchase_price * investment.number_of_shares;
-        const gainLoss = currentValue - costBasis;
-        const gainLossPercentage = (gainLoss / costBasis) * 100;
+        if (!acc[investment.stock_symbol]) {
+            acc[investment.stock_symbol] = {
+                symbol: investment.stock_symbol,
+                totalShares: 0,
+                totalCost: 0,
+                investments: [],
+                currentPrice,
+                currentValue: 0,
+                gainLoss: 0,
+                gainLossPercentage: 0
+            };
+        }
 
-        return {
-            currentValue,
-            gainLoss,
-            gainLossPercentage
-        };
+        acc[investment.stock_symbol].totalShares += investment.number_of_shares;
+        acc[investment.stock_symbol].totalCost += investmentCost;
+        acc[investment.stock_symbol].investments.push(investment);
+        acc[investment.stock_symbol].currentValue += currentValue;
+        acc[investment.stock_symbol].gainLoss = acc[investment.stock_symbol].currentValue - acc[investment.stock_symbol].totalCost;
+        acc[investment.stock_symbol].gainLossPercentage = (acc[investment.stock_symbol].gainLoss / acc[investment.stock_symbol].totalCost) * 100;
+
+        return acc;
+    }, {});
+
+    const toggleExpand = (symbol: string) => {
+        const newExpandedSymbols = new Set(expandedSymbols);
+        if (expandedSymbols.has(symbol)) {
+            newExpandedSymbols.delete(symbol);
+        } else {
+            newExpandedSymbols.add(symbol);
+        }
+        setExpandedSymbols(newExpandedSymbols);
     };
 
     return (
@@ -43,12 +79,6 @@ export const InvestmentList: React.FC<InvestmentListProps> = ({
                         <tr>
                             <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Symbol
-                            </th>
-                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Purchase Date
-                            </th>
-                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Purchase Price
                             </th>
                             <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Shares
@@ -65,67 +95,87 @@ export const InvestmentList: React.FC<InvestmentListProps> = ({
                             <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Gain/Loss
                             </th>
-                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Actions
-                            </th>
                         </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                        {investments.map((investment) => {
-                            const performance = calculatePerformance(investment);
-                            const currentPrice = getStockPrice(investment.stock_symbol);
-
-                            return (
-                                <tr key={investment.id} className="hover:bg-gray-50">
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                        {investment.stock_symbol}
+                        {Object.values(groupedInvestments).map((group) => (
+                            <React.Fragment key={group.symbol}>
+                                <tr 
+                                    className="hover:bg-gray-50 cursor-pointer"
+                                    onClick={() => toggleExpand(group.symbol)}
+                                >
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 flex items-center">
+                                        <svg 
+                                            className={`w-4 h-4 mr-2 transform transition-transform ${expandedSymbols.has(group.symbol) ? 'rotate-90' : ''}`}
+                                            fill="none" 
+                                            stroke="currentColor" 
+                                            viewBox="0 0 24 24"
+                                        >
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                        </svg>
+                                        {group.symbol}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                        {new Date(investment.purchase_date).toLocaleDateString()}
+                                        {group.totalShares.toFixed(4)}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                        ${investment.purchase_price.toFixed(2)}
+                                        ${group.totalCost.toFixed(2)}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                        {investment.number_of_shares}
+                                        {group.currentPrice ? `$${group.currentPrice.toFixed(2)}` : 'N/A'}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                        ${(investment.purchase_price * investment.number_of_shares).toFixed(2)}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                        {currentPrice ? `$${currentPrice.toFixed(2)}` : 'N/A'}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                        {performance ? `$${performance.currentValue.toFixed(2)}` : 'N/A'}
+                                        ${group.currentValue.toFixed(2)}
                                     </td>
                                     <td className={`px-6 py-4 whitespace-nowrap text-sm ${
-                                        performance?.gainLoss && performance.gainLoss >= 0 
-                                            ? 'text-green-600' 
-                                            : 'text-red-600'
+                                        group.gainLoss >= 0 ? 'text-green-600' : 'text-red-600'
                                     }`}>
-                                        {performance
-                                            ? `${performance.gainLoss >= 0 ? '+' : ''}$${performance.gainLoss.toFixed(2)} (${
-                                                performance.gainLossPercentage >= 0 ? '+' : ''}${
-                                                performance.gainLossPercentage.toFixed(2)}%)`
-                                            : 'N/A'}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                        <button
-                                            onClick={() => onEdit(investment)}
-                                            className="text-indigo-600 hover:text-indigo-900 mr-4"
-                                        >
-                                            Edit
-                                        </button>
-                                        <button
-                                            onClick={() => onDelete(investment)}
-                                            className="text-red-600 hover:text-red-900"
-                                        >
-                                            Delete
-                                        </button>
+                                        ${group.gainLoss.toFixed(2)} ({group.gainLossPercentage.toFixed(2)}%)
                                     </td>
                                 </tr>
-                            );
-                        })}
+                                {expandedSymbols.has(group.symbol) && group.investments.map((investment) => (
+                                    <tr key={investment.id} className="bg-gray-50">
+                                        <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500 pl-12">
+                                            {new Date(investment.purchase_date).toLocaleDateString()}
+                                        </td>
+                                        <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500">
+                                            {investment.number_of_shares.toFixed(4)}
+                                        </td>
+                                        <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500">
+                                            ${(investment.purchase_price * investment.number_of_shares).toFixed(2)}
+                                        </td>
+                                        <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500">
+                                            ${investment.purchase_price.toFixed(2)}
+                                        </td>
+                                        <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500">
+                                            ${(group.currentPrice ? group.currentPrice * investment.number_of_shares : 0).toFixed(2)}
+                                        </td>
+                                        <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500">
+                                            <div className="flex space-x-2">
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        onEdit(investment);
+                                                    }}
+                                                    className="text-indigo-600 hover:text-indigo-900"
+                                                >
+                                                    Edit
+                                                </button>
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        onDelete(investment);
+                                                    }}
+                                                    className="text-red-600 hover:text-red-900"
+                                                >
+                                                    Delete
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </React.Fragment>
+                        ))}
                     </tbody>
                 </table>
             </div>
