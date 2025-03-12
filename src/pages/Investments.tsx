@@ -2,8 +2,10 @@ import { useEffect, useState } from 'react';
 import { Investment, InvestmentFormData, StockPrice, PortfolioPerformance } from '../types/investment';
 import { InvestmentList } from '../components/investments/InvestmentList';
 import { PortfolioSummary } from '../components/investments/PortfolioSummary';
+import { PortfolioAnalytics } from '../components/investments/PortfolioAnalytics';
 import { InvestmentModal } from '../components/investments/InvestmentModal';
 import { StockService } from '../lib/services/stockService';
+import { AIAnalyticsService, PortfolioAnalytics as PortfolioAnalyticsType } from '../lib/services/aiAnalyticsService';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -21,6 +23,7 @@ export default function Investments() {
         portfolioHistory: []
     });
     const [loading, setLoading] = useState(true);
+    const [analytics, setAnalytics] = useState<PortfolioAnalyticsType | null>(null);
 
     useEffect(() => {
         fetchInvestments();
@@ -31,6 +34,13 @@ export default function Investments() {
             updateStockPrices();
         }
     }, [investments]);
+
+    useEffect(() => {
+        if (investments.length > 0 && currentPrices.length > 0) {
+            const portfolioAnalytics = AIAnalyticsService.analyzePortfolio(investments, currentPrices);
+            setAnalytics(portfolioAnalytics);
+        }
+    }, [investments, currentPrices]);
 
     const fetchInvestments = async () => {
         try {
@@ -187,7 +197,7 @@ export default function Investments() {
     }
 
     return (
-        <div className="container mx-auto px-4 py-8">
+        <div className="container mx-auto px-4 py-8 max-w-7xl">
             <div className="flex justify-between items-center mb-8">
                 <h1 className="text-3xl font-bold">Investment Portfolio</h1>
                 <button
@@ -201,11 +211,12 @@ export default function Investments() {
                 </button>
             </div>
             
-            <div className="mb-8">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
                 <PortfolioSummary performance={portfolioPerformance} />
+                {analytics && <PortfolioAnalytics analytics={analytics} />}
             </div>
             
-            <div>
+            <div className="bg-white rounded-xl shadow-lg p-6">
                 <h2 className="text-2xl font-bold mb-4">Your Investments</h2>
                 <InvestmentList 
                     investments={investments}

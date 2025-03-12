@@ -87,9 +87,10 @@ export const InvestmentForm: React.FC<InvestmentFormProps> = ({ onSubmit, initia
                     type="number"
                     id="number_of_shares"
                     value={formData.number_of_shares}
-                    onChange={(e) => setFormData({ ...formData, number_of_shares: parseInt(e.target.value) })}
+                    onChange={(e) => setFormData({ ...formData, number_of_shares: parseFloat(e.target.value) })}
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                    min="1"
+                    step="0.00000001"
+                    min="0.00000001"
                     required
                 />
             </div>
