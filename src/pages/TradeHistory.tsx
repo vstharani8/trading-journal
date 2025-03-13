@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { db } from '../services/supabase'
 import type { Trade, UserSettings } from '../services/supabase'
@@ -26,6 +26,12 @@ function TradeHistory() {
     status: 'all',
     profitRange: 'all'
   })
+  const [sortConfig, setSortConfig] = useState<{
+    key: keyof Trade | 'profit_loss';
+    direction: 'asc' | 'desc';
+  }>({ key: 'entry_date', direction: 'desc' })
+  const [currentPage, setCurrentPage] = useState(1)
+  const [tradesPerPage] = useState(10)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -273,6 +279,106 @@ function TradeHistory() {
     }
   }
 
+  const handleSort = (key: keyof Trade | 'profit_loss') => {
+    setSortConfig(prevConfig => ({
+      key,
+      direction: prevConfig.key === key && prevConfig.direction === 'asc' ? 'desc' : 'asc'
+    }))
+  }
+
+  const sortedTrades = useMemo(() => {
+    const sorted = [...filteredTrades].sort((a, b) => {
+      if (sortConfig.key === 'entry_date' || sortConfig.key === 'exit_date') {
+        const dateA = new Date(a[sortConfig.key] || 0).getTime()
+        const dateB = new Date(b[sortConfig.key] || 0).getTime()
+        return sortConfig.direction === 'asc' ? dateA - dateB : dateB - dateA
+      }
+      
+      if (sortConfig.key === 'profit_loss') {
+        const plA = calculateProfitLoss(a) || 0
+        const plB = calculateProfitLoss(b) || 0
+        return sortConfig.direction === 'asc' ? plA - plB : plB - plA
+      }
+
+      const valA = a[sortConfig.key]
+      const valB = b[sortConfig.key]
+      
+      if (typeof valA === 'string' && typeof valB === 'string') {
+        return sortConfig.direction === 'asc'
+          ? valA.localeCompare(valB)
+          : valB.localeCompare(valA)
+      }
+      
+      if (typeof valA === 'number' && typeof valB === 'number') {
+        return sortConfig.direction === 'asc' ? valA - valB : valB - valA
+      }
+      
+      return 0
+    })
+    return sorted
+  }, [filteredTrades, sortConfig])
+
+  const indexOfLastTrade = currentPage * tradesPerPage
+  const indexOfFirstTrade = indexOfLastTrade - tradesPerPage
+  const currentTrades = sortedTrades.slice(indexOfFirstTrade, indexOfLastTrade)
+  const totalPages = Math.ceil(sortedTrades.length / tradesPerPage)
+
+  const Pagination = () => (
+    <div className="flex items-center justify-between px-4 py-3 bg-white/70 border-t border-gray-200 sm:px-6 rounded-b-2xl">
+      <div className="flex justify-between flex-1 sm:hidden">
+        <button
+          onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+          disabled={currentPage === 1}
+          className="relative inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50"
+        >
+          Previous
+        </button>
+        <button
+          onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+          disabled={currentPage === totalPages}
+          className="relative ml-3 inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50"
+        >
+          Next
+        </button>
+      </div>
+      <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+        <div>
+          <p className="text-sm text-gray-700">
+            Showing <span className="font-medium">{indexOfFirstTrade + 1}</span> to{' '}
+            <span className="font-medium">
+              {Math.min(indexOfLastTrade, sortedTrades.length)}
+            </span>{' '}
+            of <span className="font-medium">{sortedTrades.length}</span> results
+          </p>
+        </div>
+        <div>
+          <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map(number => (
+              <button
+                key={number}
+                onClick={() => setCurrentPage(number)}
+                className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                  currentPage === number
+                    ? 'z-10 bg-indigo-50 border-indigo-500 text-indigo-600'
+                    : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
+                }`}
+              >
+                {number}
+              </button>
+            ))}
+          </nav>
+        </div>
+      </div>
+    </div>
+  )
+
+  const SortIndicator = ({ column }: { column: keyof Trade | 'profit_loss' }) => {
+    if (sortConfig.key !== column) {
+      return <span className="text-gray-400">↕</span>
+    }
+    return sortConfig.direction === 'asc' ? '↑' : '↓'
+  }
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -495,24 +601,70 @@ function TradeHistory() {
             <table className="min-w-full divide-y divide-gray-200/50">
               <thead>
                 <tr className="bg-gradient-to-r from-indigo-50 to-purple-50">
-                  {[
-                    'Date', 'Symbol', 'Type', 'Entry Price', 'Quantity', 'Total Value',
-                    'Exit Price', 'Position Size', 'P/L', 'P/L %', 'R:R Ratio', 'Status', 'Actions'
-                  ].map((header) => (
-                    <th
-                      key={header}
-                      scope="col"
-                      className={`px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider ${
-                        header === 'Actions' ? 'text-right w-[150px]' : ''
-                      }`}
-                    >
-                      {header}
-                    </th>
-                  ))}
+                  <th
+                    onClick={() => handleSort('entry_date')}
+                    className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-indigo-100/50"
+                  >
+                    Date <SortIndicator column="entry_date" />
+                  </th>
+                  <th
+                    onClick={() => handleSort('symbol')}
+                    className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-indigo-100/50"
+                  >
+                    Symbol <SortIndicator column="symbol" />
+                  </th>
+                  <th
+                    onClick={() => handleSort('type')}
+                    className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-indigo-100/50"
+                  >
+                    Type <SortIndicator column="type" />
+                  </th>
+                  <th
+                    onClick={() => handleSort('entry_price')}
+                    className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-indigo-100/50"
+                  >
+                    Entry Price <SortIndicator column="entry_price" />
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    Quantity
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    Total Value
+                  </th>
+                  <th
+                    onClick={() => handleSort('exit_price')}
+                    className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-indigo-100/50"
+                  >
+                    Exit Price <SortIndicator column="exit_price" />
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    Position Size
+                  </th>
+                  <th
+                    onClick={() => handleSort('profit_loss')}
+                    className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-indigo-100/50"
+                  >
+                    P/L <SortIndicator column="profit_loss" />
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    P/L %
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    R:R Ratio
+                  </th>
+                  <th
+                    onClick={() => handleSort('status')}
+                    className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-indigo-100/50"
+                  >
+                    Status <SortIndicator column="status" />
+                  </th>
+                  <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider w-[150px]">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white/50 divide-y divide-gray-200/50">
-                {filteredTrades.map((trade) => {
+                {currentTrades.map((trade) => {
                   const profitLoss = calculateProfitLoss(trade)
                   const positionSize = calculatePositionSize(trade)
                   const totalValue = calculateTotalValue(trade)
@@ -522,13 +674,13 @@ function TradeHistory() {
                   return (
                     <tr 
                       key={trade.id} 
-                      className="hover:bg-indigo-50/50 transition-colors duration-200 cursor-pointer backdrop-blur-lg" 
+                      className="hover:bg-indigo-50/50 transition-colors duration-200 cursor-pointer backdrop-blur-lg group" 
                       onClick={() => navigate(`/trade/${trade.id}`)}
                     >
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         {new Date(trade.entry_date).toLocaleDateString()}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         {trade.symbol}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -599,7 +751,7 @@ function TradeHistory() {
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <div className="flex justify-end gap-4">
+                        <div className="flex justify-end gap-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                           <Link
                             to={`/trade/${trade.id}`}
                             className="text-indigo-600 hover:text-indigo-900 px-4 py-2 rounded-lg hover:bg-indigo-50/50 transition-all duration-200"
@@ -624,6 +776,7 @@ function TradeHistory() {
               </tbody>
             </table>
           </div>
+          <Pagination />
         </div>
       </div>
     </div>
