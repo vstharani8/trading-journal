@@ -5,6 +5,8 @@ import type { Trade, UserSettings } from '../services/supabase'
 
 interface FilterState {
   dateRange: string
+  customStartDate: string | null
+  customEndDate: string | null
   asset: string
   strategy: string
   status: string
@@ -21,6 +23,8 @@ function TradeHistory() {
   const [userSettings, setUserSettings] = useState<UserSettings | null>(null)
   const [filters, setFilters] = useState<FilterState>({
     dateRange: 'all',
+    customStartDate: null,
+    customEndDate: null,
     asset: 'all',
     strategy: 'all',
     status: 'all',
@@ -32,6 +36,7 @@ function TradeHistory() {
   }>({ key: 'entry_date', direction: 'desc' })
   const [currentPage, setCurrentPage] = useState(1)
   const [tradesPerPage] = useState(10)
+  const [selectedTrades, setSelectedTrades] = useState<string[]>([])
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -208,7 +213,14 @@ function TradeHistory() {
     let filtered = [...trades]
 
     // Date range filter
-    if (filters.dateRange !== 'all') {
+    if (filters.dateRange === 'custom' && filters.customStartDate && filters.customEndDate) {
+      const startDate = new Date(filters.customStartDate)
+      const endDate = new Date(filters.customEndDate)
+      filtered = filtered.filter(trade => {
+        const tradeDate = new Date(trade.entry_date)
+        return tradeDate >= startDate && tradeDate <= endDate
+      })
+    } else if (filters.dateRange !== 'all') {
       const now = new Date()
       const startDate = new Date()
       
@@ -379,6 +391,52 @@ function TradeHistory() {
     return sortConfig.direction === 'asc' ? '↑' : '↓'
   }
 
+  const handleBulkDelete = async () => {
+    if (!window.confirm(`Are you sure you want to delete ${selectedTrades.length} trades?`)) return
+
+    try {
+      await Promise.all(selectedTrades.map(id => db.deleteTrade(id)))
+      setTrades(trades.filter(trade => !selectedTrades.includes(trade.id)))
+      setFilteredTrades(filteredTrades.filter(trade => !selectedTrades.includes(trade.id)))
+      setSelectedTrades([])
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete trades')
+    }
+  }
+
+  const handleExport = () => {
+    const tradesToExport = selectedTrades.length > 0
+      ? trades.filter(trade => selectedTrades.includes(trade.id))
+      : trades
+
+    const csvContent = [
+      // CSV Headers
+      ['Date', 'Symbol', 'Type', 'Entry Price', 'Exit Price', 'Quantity', 'P/L', 'P/L %', 'Status'].join(','),
+      // CSV Data
+      ...tradesToExport.map(trade => [
+        new Date(trade.entry_date).toLocaleDateString(),
+        trade.symbol,
+        trade.type,
+        trade.entry_price?.toFixed(2) || '',
+        trade.exit_price?.toFixed(2) || '',
+        trade.quantity,
+        calculateProfitLoss(trade).toFixed(2),
+        calculateProfitLossPercentage(trade).toFixed(2) + '%',
+        trade.status
+      ].join(','))
+    ].join('\n')
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement('a')
+    const url = URL.createObjectURL(blob)
+    link.setAttribute('href', url)
+    link.setAttribute('download', `trade_history_${new Date().toISOString().split('T')[0]}.csv`)
+    link.style.visibility = 'hidden'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -436,10 +494,41 @@ function TradeHistory() {
                 onChange={(e) => handleFilterChange('dateRange', e.target.value)}
               >
                 <option value="all">All Time</option>
+                <option value="today">Today</option>
                 <option value="week">Last Week</option>
                 <option value="month">Last Month</option>
                 <option value="year">Last Year</option>
+                <option value="custom">Custom Range</option>
               </select>
+
+              {filters.dateRange === 'custom' && (
+                <div className="mt-4 grid grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="startDate" className="block text-sm font-medium text-gray-700">
+                      Start Date
+                    </label>
+                    <input
+                      type="date"
+                      id="startDate"
+                      className="mt-1 block w-full rounded-lg border-gray-300 bg-white/50 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                      value={filters.customStartDate || ''}
+                      onChange={(e) => handleFilterChange('customStartDate', e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="endDate" className="block text-sm font-medium text-gray-700">
+                      End Date
+                    </label>
+                    <input
+                      type="date"
+                      id="endDate"
+                      className="mt-1 block w-full rounded-lg border-gray-300 bg-white/50 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                      value={filters.customEndDate || ''}
+                      onChange={(e) => handleFilterChange('customEndDate', e.target.value)}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -597,10 +686,45 @@ function TradeHistory() {
 
         {/* Trade Table */}
         <div className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-xl border border-white/20 overflow-hidden">
+          <div className="p-4 border-b border-gray-200 flex justify-between items-center">
+            <div className="flex items-center gap-4">
+              <span className="text-sm text-gray-500">
+                {selectedTrades.length} selected
+              </span>
+              {selectedTrades.length > 0 && (
+                <button
+                  onClick={handleBulkDelete}
+                  className="text-red-600 hover:text-red-900 text-sm font-medium"
+                >
+                  Delete Selected
+                </button>
+              )}
+            </div>
+            <button
+              onClick={handleExport}
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-indigo-600 bg-indigo-50 hover:bg-indigo-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            >
+              Export to CSV
+            </button>
+          </div>
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200/50">
               <thead>
                 <tr className="bg-gradient-to-r from-indigo-50 to-purple-50">
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600">
+                    <input
+                      type="checkbox"
+                      className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                      checked={selectedTrades.length === currentTrades.length}
+                      onChange={(e) => {
+                        setSelectedTrades(
+                          e.target.checked
+                            ? currentTrades.map(t => t.id)
+                            : []
+                        )
+                      }}
+                    />
+                  </th>
                   <th
                     onClick={() => handleSort('entry_date')}
                     className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-indigo-100/50"
@@ -677,6 +801,20 @@ function TradeHistory() {
                       className="hover:bg-indigo-50/50 transition-colors duration-200 cursor-pointer backdrop-blur-lg group" 
                       onClick={() => navigate(`/trade/${trade.id}`)}
                     >
+                      <td className="px-6 py-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                          checked={selectedTrades.includes(trade.id)}
+                          onChange={(e) => {
+                            setSelectedTrades(prev =>
+                              e.target.checked
+                                ? [...prev, trade.id]
+                                : prev.filter(id => id !== trade.id)
+                            )
+                          }}
+                        />
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         {new Date(trade.entry_date).toLocaleDateString()}
                       </td>
