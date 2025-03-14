@@ -832,24 +832,24 @@ function TradeForm() {
                 className="mt-2 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
               />
             </div>
-          </div>
 
-          {/* Action Buttons - Moved up */}
-          <div className="flex justify-end space-x-4 border-t border-gray-200 pt-6">
-            <button
-              type="button"
-              onClick={() => navigate('/trades')}
-              className="inline-flex items-center px-6 py-3 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={loading}
-              className="inline-flex items-center px-6 py-3 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200"
-            >
-              {loading ? 'Saving...' : id ? 'Update Trade' : 'Create Trade'}
-            </button>
+            {/* Action Buttons - Below Notes */}
+            <div className="sm:col-span-2 flex justify-end space-x-4">
+              <button
+                type="button"
+                onClick={() => navigate('/trades')}
+                className="inline-flex items-center px-6 py-3 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={loading}
+                className="inline-flex items-center px-6 py-3 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200"
+              >
+                {loading ? 'Saving...' : id ? 'Update Trade' : 'Create Trade'}
+              </button>
+            </div>
           </div>
 
           {/* Chart Section */}
