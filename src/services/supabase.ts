@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { Market } from './marketData'
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
@@ -39,6 +40,7 @@ export interface Trade {
   proficiency?: string | null
   growth_areas?: string | null
   exit_trigger?: string | null
+  market: Market
 }
 
 export interface Strategy {

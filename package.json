@@ -28,11 +28,13 @@
     "@tiptap/extension-task-list": "^2.11.5",
     "@tiptap/react": "^2.11.5",
     "@tiptap/starter-kit": "^2.11.5",
+    "axios": "^1.8.3",
     "chart.js": "^4.4.8",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^3.6.0",
     "idb": "^8.0.2",
+    "lightweight-charts": "^5.0.3",
     "lowlight": "^3.3.0",
     "lucide-react": "^0.479.0",
     "openai": "^4.86.2",
@@ -43,7 +45,8 @@
     "recharts": "^2.15.1",
     "tailwind-merge": "^3.0.2",
     "tailwindcss-animate": "^1.0.7",
-    "tiptap": "^1.32.2"
+    "tiptap": "^1.32.2",
+    "yahoo-finance2": "^2.13.3"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.6.3",
