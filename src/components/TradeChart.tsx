@@ -7,9 +7,6 @@ import {
   LineStyle,
   Time,
   CandlestickSeries,
-  SeriesOptionsCommon,
-  CandlestickStyleOptions,
-  CreatePriceLineOptions,
   SeriesMarker,
   createSeriesMarkers
 } from 'lightweight-charts';
