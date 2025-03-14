@@ -346,24 +346,6 @@ function TradeForm() {
         )}
 
         <form onSubmit={handleSubmit} className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-xl p-8 border border-white/20 space-y-8">
-          {/* Chart Section */}
-          {formData.symbol && (
-            <div className="sm:col-span-2">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Trade Chart</h3>
-              {chartError ? (
-                <div className="bg-red-50 border border-red-200 rounded-xl p-4">
-                  <p className="text-sm text-red-600">{chartError}</p>
-                </div>
-              ) : candleData.length > 0 ? (
-                <TradeChart trade={formData as Trade} candleData={candleData} />
-              ) : (
-                <div className="flex justify-center items-center h-64 bg-gray-50 rounded-xl">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
-                </div>
-              )}
-            </div>
-          )}
-
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
             <div>
               <label htmlFor="market" className="block text-sm font-medium text-gray-700">
@@ -850,119 +832,137 @@ function TradeForm() {
                 className="mt-2 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
               />
             </div>
+          </div>
 
-            {/* AI Analysis Section */}
-            {formData.status === 'closed' && (
-              <div className="sm:col-span-2 border-t border-gray-200 pt-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-medium text-gray-900">AI Trade Analysis</h3>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      try {
-                        setLoading(true);
-                        const feedback = await generateTradeFeedback(formData as Trade);
-                        const updatedFormData = {
-                          ...formData,
-                          ai_feedback_performance: feedback.performance,
-                          ai_feedback_lessons: feedback.lessons,
-                          ai_feedback_mistakes: feedback.mistakes,
-                          ai_feedback_generated_at: new Date().toISOString()
-                        };
-                        
-                        // Save the feedback to the database if we're editing an existing trade
-                        if (id) {
-                          const now = new Date().toISOString();
-                          await db.updateTrade({
-                            ...updatedFormData,
-                            id,
-                            created_at: now,
-                            updated_at: now
-                          });
-                          setSuccess('AI analysis saved successfully');
-                        }
-                        
-                        setFormData(updatedFormData);
-                      } catch (err) {
-                        setError(err instanceof Error ? err.message : 'Failed to generate AI feedback');
-                      } finally {
-                        setLoading(false);
-                      }
-                    }}
-                    disabled={loading}
-                    className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                  >
-                    {loading ? (
-                      <span className="flex items-center">
-                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        Analyzing...
-                      </span>
-                    ) : formData.ai_feedback_generated_at ? 'Regenerate Analysis' : 'Generate Analysis'}
-                  </button>
+          {/* Chart Section - Moved down */}
+          {formData.symbol && (
+            <div className="border-t border-gray-200 pt-8">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Trade Chart</h3>
+              {chartError ? (
+                <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+                  <p className="text-sm text-red-600">{chartError}</p>
                 </div>
+              ) : candleData.length > 0 ? (
+                <TradeChart trade={formData as Trade} candleData={candleData} />
+              ) : (
+                <div className="flex justify-center items-center h-64 bg-gray-50 rounded-xl">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+                </div>
+              )}
+            </div>
+          )}
 
-                {/* Success message */}
-                {success && (
-                  <div className="mb-4 p-4 bg-green-50 rounded-lg">
-                    <p className="text-sm text-green-600">{success}</p>
+          {/* AI Analysis Section */}
+          {formData.status === 'closed' && (
+            <div className="sm:col-span-2 border-t border-gray-200 pt-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-medium text-gray-900">AI Trade Analysis</h3>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      setLoading(true);
+                      const feedback = await generateTradeFeedback(formData as Trade);
+                      const updatedFormData = {
+                        ...formData,
+                        ai_feedback_performance: feedback.performance,
+                        ai_feedback_lessons: feedback.lessons,
+                        ai_feedback_mistakes: feedback.mistakes,
+                        ai_feedback_generated_at: new Date().toISOString()
+                      };
+                      
+                      // Save the feedback to the database if we're editing an existing trade
+                      if (id) {
+                        const now = new Date().toISOString();
+                        await db.updateTrade({
+                          ...updatedFormData,
+                          id,
+                          created_at: now,
+                          updated_at: now
+                        });
+                        setSuccess('AI analysis saved successfully');
+                      }
+                      
+                      setFormData(updatedFormData);
+                    } catch (err) {
+                      setError(err instanceof Error ? err.message : 'Failed to generate AI feedback');
+                    } finally {
+                      setLoading(false);
+                    }
+                  }}
+                  disabled={loading}
+                  className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                >
+                  {loading ? (
+                    <span className="flex items-center">
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Analyzing...
+                    </span>
+                  ) : formData.ai_feedback_generated_at ? 'Regenerate Analysis' : 'Generate Analysis'}
+                </button>
+              </div>
+
+              {/* Success message */}
+              {success && (
+                <div className="mb-4 p-4 bg-green-50 rounded-lg">
+                  <p className="text-sm text-green-600">{success}</p>
+                </div>
+              )}
+
+              {formData.ai_feedback_performance && (
+                <div className="space-y-6 bg-white/50 rounded-lg p-6">
+                  <div>
+                    <h4 className="text-sm font-medium text-indigo-600 mb-2">Performance Analysis</h4>
+                    <div className="space-y-2 text-sm text-gray-900">
+                      {formData.ai_feedback_performance.split('\n').map((point, index) => (
+                        <div key={index} className="flex items-start">
+                          <span className="text-indigo-500 mr-2">•</span>
+                          <p>{point.replace(/^[•-]\s*/, '')}</p>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                )}
-
-                {formData.ai_feedback_performance && (
-                  <div className="space-y-6 bg-white/50 rounded-lg p-6">
+                  
+                  {formData.ai_feedback_lessons && (
                     <div>
-                      <h4 className="text-sm font-medium text-indigo-600 mb-2">Performance Analysis</h4>
+                      <h4 className="text-sm font-medium text-green-600 mb-2">What Worked Well</h4>
                       <div className="space-y-2 text-sm text-gray-900">
-                        {formData.ai_feedback_performance.split('\n').map((point, index) => (
+                        {formData.ai_feedback_lessons.split('\n').map((point, index) => (
                           <div key={index} className="flex items-start">
-                            <span className="text-indigo-500 mr-2">•</span>
+                            <span className="text-green-500 mr-2">•</span>
                             <p>{point.replace(/^[•-]\s*/, '')}</p>
                           </div>
                         ))}
                       </div>
                     </div>
-                    
-                    {formData.ai_feedback_lessons && (
-                      <div>
-                        <h4 className="text-sm font-medium text-green-600 mb-2">What Worked Well</h4>
-                        <div className="space-y-2 text-sm text-gray-900">
-                          {formData.ai_feedback_lessons.split('\n').map((point, index) => (
-                            <div key={index} className="flex items-start">
-                              <span className="text-green-500 mr-2">•</span>
-                              <p>{point.replace(/^[•-]\s*/, '')}</p>
-                            </div>
-                          ))}
-                        </div>
+                  )}
+                  
+                  {formData.ai_feedback_mistakes && (
+                    <div>
+                      <h4 className="text-sm font-medium text-orange-600 mb-2">Areas to Improve</h4>
+                      <div className="space-y-2 text-sm text-gray-900">
+                        {formData.ai_feedback_mistakes.split('\n').map((point, index) => (
+                          <div key={index} className="flex items-start">
+                            <span className="text-orange-500 mr-2">•</span>
+                            <p>{point.replace(/^[•-]\s*/, '')}</p>
+                          </div>
+                        ))}
                       </div>
-                    )}
-                    
-                    {formData.ai_feedback_mistakes && (
-                      <div>
-                        <h4 className="text-sm font-medium text-orange-600 mb-2">Areas to Improve</h4>
-                        <div className="space-y-2 text-sm text-gray-900">
-                          {formData.ai_feedback_mistakes.split('\n').map((point, index) => (
-                            <div key={index} className="flex items-start">
-                              <span className="text-orange-500 mr-2">•</span>
-                              <p>{point.replace(/^[•-]\s*/, '')}</p>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
+                    </div>
+                  )}
 
-                    {formData.ai_feedback_generated_at && (
-                      <div className="mt-4 pt-4 border-t border-gray-100 text-xs text-gray-500">
-                        Last analyzed on {new Date(formData.ai_feedback_generated_at).toLocaleString()}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+                  {formData.ai_feedback_generated_at && (
+                    <div className="mt-4 pt-4 border-t border-gray-100 text-xs text-gray-500">
+                      Last analyzed on {new Date(formData.ai_feedback_generated_at).toLocaleString()}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="flex justify-end space-x-4">
             <button
