@@ -36,8 +36,8 @@ const TradeChart: React.FC<TradeChartProps> = ({ trade, candleData }) => {
     // Create chart
     const chart = createChart(chartContainerRef.current, {
       layout: {
-        background: { type: ColorType.Solid, color: 'white' },
-        textColor: 'black',
+        background: { type: ColorType.Solid, color: '#111827' },
+        textColor: '#9CA3AF',
       },
       width: chartContainerRef.current.clientWidth,
       height: 400,
@@ -45,25 +45,25 @@ const TradeChart: React.FC<TradeChartProps> = ({ trade, candleData }) => {
         mode: CrosshairMode.Normal,
       },
       grid: {
-        vertLines: { color: '#f0f0f0' },
-        horzLines: { color: '#f0f0f0' },
+        vertLines: { color: '#1F2937' },
+        horzLines: { color: '#1F2937' },
       },
       timeScale: {
-        borderColor: '#d1d5db',
+        borderColor: '#374151',
         timeVisible: true,
       },
       rightPriceScale: {
-        borderColor: '#d1d5db',
+        borderColor: '#374151',
       },
     });
 
     // Add candlestick series
     const candlestickSeries = chart.addSeries(CandlestickSeries, {
-      upColor: '#22c55e',
-      downColor: '#ef4444',
+      upColor: '#10B981',
+      downColor: '#EF4444',
       borderVisible: false,
-      wickUpColor: '#22c55e',
-      wickDownColor: '#ef4444',
+      wickUpColor: '#10B981',
+      wickDownColor: '#EF4444',
     });
 
     // Set the data
@@ -203,7 +203,7 @@ const TradeChart: React.FC<TradeChartProps> = ({ trade, candleData }) => {
   }, [trade, candleData]);
 
   return (
-    <div className="bg-white rounded-xl shadow-lg p-4">
+    <div className="bg-gray-900 rounded-xl shadow-lg p-4">
       <div ref={chartContainerRef} className="w-full" />
     </div>
   );
