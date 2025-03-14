@@ -4,6 +4,8 @@ import { db } from '../services/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { Trade } from '../services/supabase'
 import { generateTradeFeedback } from '../services/openai'
+import TradeChart from '../components/TradeChart'
+import { fetchHistoricalData, getChartDateRange, CandleData } from '../services/marketData'
 
 type TradeFormData = {
   symbol: string
@@ -80,6 +82,8 @@ function TradeForm() {
   const [suggestedSize, setSuggestedSize] = useState<number | null>(null)
   const [riskAmount, setRiskAmount] = useState<number | null>(null)
   const [accountRisk, setAccountRisk] = useState<number>(0.5)
+  const [candleData, setCandleData] = useState<CandleData[]>([])
+  const [chartError, setChartError] = useState<string | null>(null)
 
   useEffect(() => {
     if (user?.id) {
@@ -101,6 +105,12 @@ function TradeForm() {
   useEffect(() => {
     calculatePositionSize()
   }, [formData.entry_price, formData.stop_loss, userSettings, accountRisk])
+
+  useEffect(() => {
+    if (formData.symbol && formData.entry_date) {
+      loadChartData();
+    }
+  }, [formData.symbol, formData.entry_date, formData.exit_date]);
 
   const loadStrategies = async () => {
     try {
@@ -188,6 +198,18 @@ function TradeForm() {
     setSuggestedSize(calculatedSize)
     setRiskAmount(calculatedSize * priceRisk)
   }
+
+  const loadChartData = async () => {
+    try {
+      setChartError(null);
+      const { startDate, endDate } = getChartDateRange(formData.entry_date, formData.exit_date);
+      const data = await fetchHistoricalData(formData.symbol, startDate, endDate);
+      setCandleData(data);
+    } catch (error) {
+      console.error('Error loading chart data:', error);
+      setChartError('Failed to load chart data. Please check if the symbol is correct.');
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -310,6 +332,24 @@ function TradeForm() {
         )}
 
         <form onSubmit={handleSubmit} className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-xl p-8 border border-white/20 space-y-8">
+          {/* Chart Section */}
+          {formData.symbol && (
+            <div className="sm:col-span-2">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Trade Chart</h3>
+              {chartError ? (
+                <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+                  <p className="text-sm text-red-600">{chartError}</p>
+                </div>
+              ) : candleData.length > 0 ? (
+                <TradeChart trade={formData as Trade} candleData={candleData} />
+              ) : (
+                <div className="flex justify-center items-center h-64 bg-gray-50 rounded-xl">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
             <div>
               <label htmlFor="symbol" className="block text-sm font-medium text-gray-700">
