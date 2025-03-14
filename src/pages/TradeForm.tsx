@@ -834,9 +834,27 @@ function TradeForm() {
             </div>
           </div>
 
-          {/* Chart Section - Moved down */}
+          {/* Action Buttons - Moved up */}
+          <div className="flex justify-end space-x-4 border-t border-gray-200 pt-6">
+            <button
+              type="button"
+              onClick={() => navigate('/trades')}
+              className="inline-flex items-center px-6 py-3 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={loading}
+              className="inline-flex items-center px-6 py-3 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200"
+            >
+              {loading ? 'Saving...' : id ? 'Update Trade' : 'Create Trade'}
+            </button>
+          </div>
+
+          {/* Chart Section */}
           {formData.symbol && (
-            <div className="border-t border-gray-200 pt-8">
+            <div className="border-t border-gray-200 pt-8 mt-8">
               <h3 className="text-lg font-medium text-gray-900 mb-4">Trade Chart</h3>
               {chartError ? (
                 <div className="bg-red-50 border border-red-200 rounded-xl p-4">
@@ -963,23 +981,6 @@ function TradeForm() {
               )}
             </div>
           )}
-
-          <div className="flex justify-end space-x-4">
-            <button
-              type="button"
-              onClick={() => navigate('/trades')}
-              className="inline-flex items-center px-6 py-3 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={loading}
-              className="inline-flex items-center px-6 py-3 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200"
-            >
-              {loading ? 'Saving...' : id ? 'Update Trade' : 'Create Trade'}
-            </button>
-          </div>
         </form>
       </div>
     </div>
