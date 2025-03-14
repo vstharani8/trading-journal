@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { Trade } from '../services/supabase'
 import { generateTradeFeedback } from '../services/openai'
 import TradeChart from '../components/TradeChart'
-import { fetchHistoricalData, getChartDateRange, CandleData } from '../services/marketData'
+import { fetchHistoricalData, getChartDateRange, CandleData, Market } from '../services/marketData'
 
 type TradeFormData = {
   symbol: string
@@ -33,6 +33,7 @@ type TradeFormData = {
   ai_feedback_lessons?: string | null
   ai_feedback_mistakes?: string | null
   ai_feedback_generated_at?: string | null
+  market: Market
 }
 
 const initialFormData: TradeFormData = {
@@ -60,7 +61,8 @@ const initialFormData: TradeFormData = {
   ai_feedback_performance: null,
   ai_feedback_lessons: null,
   ai_feedback_mistakes: null,
-  ai_feedback_generated_at: null
+  ai_feedback_generated_at: null,
+  market: 'US'
 }
 
 function TradeForm() {
@@ -110,7 +112,7 @@ function TradeForm() {
     if (formData.symbol && formData.entry_date) {
       loadChartData();
     }
-  }, [formData.symbol, formData.entry_date, formData.exit_date]);
+  }, [formData.symbol, formData.entry_date, formData.exit_date, formData.market]);
 
   const loadStrategies = async () => {
     try {
@@ -154,7 +156,8 @@ function TradeForm() {
         ai_feedback_performance: trade.ai_feedback_performance || null,
         ai_feedback_lessons: trade.ai_feedback_lessons || null,
         ai_feedback_mistakes: trade.ai_feedback_mistakes || null,
-        ai_feedback_generated_at: trade.ai_feedback_generated_at || null
+        ai_feedback_generated_at: trade.ai_feedback_generated_at || null,
+        market: trade.market || 'US'
       })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load trade')
@@ -202,12 +205,23 @@ function TradeForm() {
   const loadChartData = async () => {
     try {
       setChartError(null);
-      const { startDate, endDate } = getChartDateRange(formData.entry_date, formData.exit_date);
-      const data = await fetchHistoricalData(formData.symbol, startDate, endDate);
+      const { startDate, endDate } = getChartDateRange(
+        formData.entry_date, 
+        formData.exit_date
+      );
+      const data = await fetchHistoricalData(
+        formData.symbol, 
+        startDate, 
+        endDate,
+        formData.market
+      );
       setCandleData(data);
     } catch (error) {
       console.error('Error loading chart data:', error);
-      setChartError('Failed to load chart data. Please check if the symbol is correct.');
+      const errorMessage = formData.market === 'IN' 
+        ? 'Failed to load chart data. Please check if the NSE symbol is correct (e.g., TATAMOTORS, RELIANCE).'
+        : 'Failed to load chart data. Please check if the symbol is correct.';
+      setChartError(errorMessage);
     }
   };
 
@@ -352,18 +366,43 @@ function TradeForm() {
 
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
             <div>
+              <label htmlFor="market" className="block text-sm font-medium text-gray-700">
+                Market
+              </label>
+              <select
+                name="market"
+                id="market"
+                value={formData.market}
+                onChange={handleChange}
+                className="mt-2 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+              >
+                <option value="US">US Stock</option>
+                <option value="IN">Indian Stock (NSE)</option>
+              </select>
+            </div>
+
+            <div>
               <label htmlFor="symbol" className="block text-sm font-medium text-gray-700">
                 Symbol
               </label>
-              <input
-                type="text"
-                name="symbol"
-                id="symbol"
-                required
-                value={formData.symbol}
-                onChange={handleChange}
-                className="mt-2 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-              />
+              <div className="mt-2 flex rounded-md shadow-sm">
+                <input
+                  type="text"
+                  name="symbol"
+                  id="symbol"
+                  required
+                  value={formData.symbol}
+                  onChange={handleChange}
+                  onBlur={loadChartData}
+                  placeholder={formData.market === 'US' ? 'e.g., AAPL' : 'e.g., TATAMOTORS'}
+                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                />
+              </div>
+              <p className="mt-1 text-sm text-gray-500">
+                {formData.market === 'US' 
+                  ? 'Enter US stock symbol (e.g., AAPL, MSFT, GOOGL)' 
+                  : 'Enter NSE symbol (e.g., TATAMOTORS, RELIANCE, INFY)'}
+              </p>
             </div>
 
             <div>

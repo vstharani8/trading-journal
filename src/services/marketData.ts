@@ -10,16 +10,38 @@ export interface CandleData {
   close: number;
 }
 
+// Market type definition
+export type Market = 'US' | 'IN';
+
+// Helper function to format stock symbol based on market
+function formatStockSymbol(symbol: string, market: Market): string {
+  // Remove any existing exchange suffixes first
+  const baseSymbol = symbol.replace(/\.(NS|BO)$/, '').toUpperCase().trim();
+  
+  switch (market) {
+    case 'IN':
+      return `${baseSymbol}.NS`;
+    case 'US':
+      return baseSymbol;
+    default:
+      return baseSymbol;
+  }
+}
+
 export async function fetchHistoricalData(
   symbol: string,
   startDate: string,
-  endDate: string
+  endDate: string,
+  market: Market = 'US'
 ): Promise<CandleData[]> {
   try {
+    // Format the symbol appropriately based on the market
+    const formattedSymbol = formatStockSymbol(symbol, market);
+
     const response = await axios.post(
       `${SUPABASE_URL}/functions/v1/yahoo-finance`,
       {
-        symbol,
+        symbol: formattedSymbol,
         startDate,
         endDate
       },
@@ -31,28 +53,45 @@ export async function fetchHistoricalData(
       }
     );
 
+    // If no data is returned, throw an error
+    if (!response.data || response.data.length === 0) {
+      throw new Error(`No data available for symbol: ${formattedSymbol}`);
+    }
+
     return response.data;
   } catch (error) {
     console.error('Error fetching historical data:', error);
+    if (axios.isAxiosError(error) && error.response?.status === 404) {
+      throw new Error(`Stock symbol not found: ${symbol}. For Indian stocks, make sure to use NSE symbols.`);
+    }
     throw error;
   }
 }
 
 // Helper function to get date range for chart
-export function getChartDateRange(entryDate: string, exitDate?: string | null): {
+export function getChartDateRange(
+  entryDate: string,
+  exitDate?: string | null
+): {
   startDate: string;
   endDate: string;
 } {
   const start = new Date(entryDate);
-  start.setMonth(start.getMonth() - 1); // Get 1 month before entry
+  // Get 1 month before entry
+  start.setMonth(start.getMonth() - 1);
 
-  const end = exitDate 
-    ? new Date(exitDate)
-    : new Date(); // If trade is still open, use current date
-
-  // If trade is closed, get 2 weeks after exit
+  let end: Date;
   if (exitDate) {
-    end.setDate(end.getDate() + 14); // Changed from 7 to 14 days
+    end = new Date(exitDate);
+    // For closed trades, get 2 weeks after exit
+    end.setDate(end.getDate() + 14);
+  } else {
+    // For open trades, use current date
+    end = new Date();
+    // Adjust for Indian market if needed (end of day IST)
+    if (end.getHours() < 19) { // If before 19:00 IST
+      end.setDate(end.getDate() - 1); // Use previous day's data
+    }
   }
 
   return {
