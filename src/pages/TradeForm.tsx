@@ -24,7 +24,6 @@ type TradeFormData = {
   status: 'open' | 'closed'
   user_id: string
   market_conditions?: 'bullish' | 'bearish' | 'neutral' | null
-  trade_setup?: string | null
   emotional_state?: 'confident' | 'uncertain' | 'neutral' | null
   proficiency?: string | null
   growth_areas?: string | null
@@ -53,7 +52,6 @@ const initialFormData: TradeFormData = {
   status: 'open',
   user_id: '',
   market_conditions: null,
-  trade_setup: null,
   emotional_state: null,
   proficiency: null,
   growth_areas: null,
@@ -148,7 +146,6 @@ function TradeForm() {
         status: trade.status,
         user_id: trade.user_id,
         market_conditions: trade.market_conditions || null,
-        trade_setup: trade.trade_setup || null,
         emotional_state: trade.emotional_state || null,
         proficiency: trade.proficiency || null,
         growth_areas: trade.growth_areas || null,
@@ -252,7 +249,6 @@ function TradeForm() {
         fees: formData.fees || 0, // Ensure fees is never null
         strategy: formData.strategy || 'Unknown', // Ensure strategy is never null
         market_conditions: formData.market_conditions || null,
-        trade_setup: formData.trade_setup || null,
         emotional_state: formData.emotional_state || null,
         proficiency: formData.proficiency || null,
         growth_areas: formData.growth_areas || null,
@@ -676,21 +672,6 @@ function TradeForm() {
               </div>
 
               <div>
-                <label htmlFor="trade_setup" className="block text-sm font-medium text-gray-700">
-                  Trade Setup
-                </label>
-                <input
-                  type="text"
-                  name="trade_setup"
-                  id="trade_setup"
-                  placeholder="e.g., Break and Retest"
-                  value={formData.trade_setup || ''}
-                  onChange={handleChange}
-                  className="mt-2 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                />
-              </div>
-
-              <div>
                 <label htmlFor="emotional_state" className="block text-sm font-medium text-gray-700">
                   Emotional State
                 </label>
@@ -707,10 +688,7 @@ function TradeForm() {
                   <option value="neutral">Neutral</option>
                 </select>
               </div>
-            </div>
 
-            {/* Trade Analysis */}
-            <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
                 <label htmlFor="proficiency" className="block text-sm font-medium text-gray-700">
                   Proficiency
@@ -733,7 +711,10 @@ function TradeForm() {
                   <option value="Good Entry">Good Entry</option>
                 </select>
               </div>
+            </div>
 
+            {/* Trade Analysis */}
+            <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
                 <label htmlFor="growth_areas" className="block text-sm font-medium text-gray-700">
                   Growth Areas
