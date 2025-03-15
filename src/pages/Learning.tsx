@@ -59,26 +59,32 @@ function Learning() {
     try {
       let prompt = ''
       if (type === 'lessons') {
-        prompt = `Summarize these trading lessons into 3-4 key actionable points:\n${feedback.join('\n')}`
+        prompt = `Summarize these trading lessons into 3 brief, actionable bullet points (max 10 words each):\n${feedback.join('\n')}`
       } else if (type === 'performance') {
-        prompt = `Extract 3 most important performance insights from this trading feedback:\n${feedback.join('\n')}`
+        prompt = `Extract 3 key performance insights as brief bullet points (max 10 words each):\n${feedback.join('\n')}`
       } else {
-        prompt = `Identify 3 critical areas for improvement from this trading feedback:\n${feedback.join('\n')}`
+        prompt = `List 3 critical areas for improvement as brief bullet points (max 10 words each):\n${feedback.join('\n')}`
       }
 
       const completion = await openai.chat.completions.create({
-        messages: [{ role: 'user', content: prompt }],
+        messages: [
+          { 
+            role: 'system', 
+            content: 'You are a trading coach. Keep responses extremely concise and actionable. No explanations, just clear directives.'
+          },
+          { role: 'user', content: prompt }
+        ],
         model: 'gpt-3.5-turbo',
       })
 
       const refinedPoints = completion.choices[0]?.message?.content?.split('\n')
         .filter(point => point.trim())
-        .map(point => point.replace(/^\d+\.\s*/, '').trim()) || []
+        .map(point => point.replace(/^[•-]\s*/, '').trim()) || []
 
-      return refinedPoints.length > 0 ? refinedPoints : feedback.slice(0, 3)
+      return refinedPoints.length > 0 ? refinedPoints : feedback.slice(0, 3).map(f => f.split(':')[0].trim())
     } catch (err) {
       console.error('Error refining feedback:', err)
-      return feedback.slice(0, 3) // Fallback to first 3 original points
+      return feedback.slice(0, 3).map(f => f.split(':')[0].trim()) // Fallback to first 3 original points, taking only the first part before ":"
     }
   }
 
