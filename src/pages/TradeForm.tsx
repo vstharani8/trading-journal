@@ -853,18 +853,37 @@ function TradeForm() {
           </div>
 
           {/* Chart Section */}
-          {formData.symbol && (
-            <div className="border-t border-gray-200 pt-8 mt-8">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Trade Chart</h3>
+          {formData.symbol && formData.status === 'closed' && (
+            <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl p-8 border border-white/20 mt-8">
+              <h3 className="text-xl font-semibold text-gray-900 mb-6 flex items-center">
+                <svg className="w-6 h-6 mr-2 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
+                </svg>
+                Trade Chart
+              </h3>
               {chartError ? (
-                <div className="bg-red-50 border border-red-200 rounded-xl p-4">
-                  <p className="text-sm text-red-600">{chartError}</p>
+                <div className="bg-red-50 border-l-4 border-red-400 p-4 rounded-r-lg">
+                  <div className="flex">
+                    <div className="flex-shrink-0">
+                      <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <div className="ml-3">
+                      <p className="text-sm text-red-800">{chartError}</p>
+                    </div>
+                  </div>
                 </div>
               ) : candleData.length > 0 ? (
-                <TradeChart trade={formData as Trade} candleData={candleData} />
+                <div className="bg-gray-900 rounded-xl p-4">
+                  <TradeChart trade={formData as Trade} candleData={candleData} />
+                </div>
               ) : (
                 <div className="flex justify-center items-center h-64 bg-gray-50 rounded-xl">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+                  <div className="flex flex-col items-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mb-4"></div>
+                    <p className="text-gray-500">Loading chart data...</p>
+                  </div>
                 </div>
               )}
             </div>
