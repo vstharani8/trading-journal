@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react'
-import { useAuth } from '../contexts/AuthContext'
 import { db } from '../services/supabase'
 import { Trade } from '../services/supabase'
 import OpenAI from 'openai'
@@ -21,7 +20,6 @@ interface AggregatedAnalytics {
 }
 
 function Learning() {
-  const { user } = useAuth()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [trades, setTrades] = useState<Trade[]>([])
