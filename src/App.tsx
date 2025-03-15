@@ -7,7 +7,7 @@ import TradeForm from './pages/TradeForm'
 import Settings from './pages/Settings'
 import Login from './pages/Login'
 import SignUp from './pages/SignUp'
-import Notes from './pages/Notes'
+import Learning from './pages/Learning'
 import InvestmentsPage from './pages/Investments'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -86,11 +86,11 @@ function AuthenticatedRoutes() {
         }
       />
       <Route
-        path="/notes"
+        path="/learning"
         element={
           <ProtectedRoute>
             <Layout>
-              <Notes />
+              <Learning />
             </Layout>
           </ProtectedRoute>
         }
