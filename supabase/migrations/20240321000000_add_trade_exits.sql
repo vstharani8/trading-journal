@@ -47,14 +47,19 @@ CREATE TRIGGER update_trade_exits_updated_at
 -- Create function to update trade status and remaining quantity
 CREATE OR REPLACE FUNCTION update_trade_on_exit()
 RETURNS TRIGGER AS $$
+DECLARE
+  total_exit_quantity DECIMAL;
 BEGIN
+  -- Calculate total exit quantity including the new exit
+  SELECT COALESCE(SUM(quantity), 0) + NEW.quantity
+  INTO total_exit_quantity
+  FROM trade_exits
+  WHERE trade_id = NEW.trade_id AND id != NEW.id;
+
   -- Update remaining quantity
-  UPDATE trades
+  UPDATE trades t
   SET 
-    remaining_quantity = CASE 
-      WHEN t.remaining_quantity IS NULL THEN t.quantity - NEW.quantity
-      ELSE t.remaining_quantity - NEW.quantity
-    END,
+    remaining_quantity = t.quantity - total_exit_quantity,
     average_exit_price = (
       SELECT COALESCE(
         SUM(exit_price * quantity) / NULLIF(SUM(quantity), 0),
@@ -64,7 +69,7 @@ BEGIN
       WHERE trade_id = NEW.trade_id
     ),
     status = CASE 
-      WHEN t.remaining_quantity - NEW.quantity <= 0 THEN 'closed'
+      WHEN total_exit_quantity >= t.quantity THEN 'closed'
       ELSE 'open'
     END
   FROM trades t
@@ -79,6 +84,49 @@ CREATE TRIGGER update_trade_on_exit_trigger
   AFTER INSERT OR UPDATE ON trade_exits
   FOR EACH ROW
   EXECUTE FUNCTION update_trade_on_exit();
+
+-- Create function to handle trade exit deletions
+CREATE OR REPLACE FUNCTION update_trade_on_exit_delete()
+RETURNS TRIGGER AS $$
+DECLARE
+  total_exit_quantity DECIMAL;
+BEGIN
+  -- Calculate total exit quantity excluding the deleted exit
+  SELECT COALESCE(SUM(quantity), 0)
+  INTO total_exit_quantity
+  FROM trade_exits
+  WHERE trade_id = OLD.trade_id AND id != OLD.id;
+
+  -- Update the trade when an exit is deleted
+  UPDATE trades t
+  SET 
+    remaining_quantity = t.quantity - total_exit_quantity,
+    average_exit_price = CASE 
+      WHEN total_exit_quantity = 0 THEN NULL
+      ELSE (
+        SELECT COALESCE(
+          SUM(exit_price * quantity) / NULLIF(SUM(quantity), 0),
+          NULL
+        )
+        FROM trade_exits
+        WHERE trade_id = OLD.trade_id AND id != OLD.id
+      )
+    END,
+    status = CASE 
+      WHEN total_exit_quantity >= t.quantity THEN 'closed'
+      ELSE 'open'
+    END
+  WHERE t.id = OLD.trade_id;
+  
+  RETURN OLD;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create trigger for trade updates on exit deletion
+CREATE TRIGGER update_trade_on_exit_delete_trigger
+  AFTER DELETE ON trade_exits
+  FOR EACH ROW
+  EXECUTE FUNCTION update_trade_on_exit_delete();
 
 -- Add foreign key relationship for trade_exits in trades table
 ALTER TABLE trades ADD COLUMN IF NOT EXISTS trade_exits UUID[];

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { db } from '../services/supabase'
 import type { Trade, UserSettings } from '../services/supabase'
@@ -488,6 +488,23 @@ function TradeHistory() {
     link.click()
     document.body.removeChild(link)
   }
+
+  const refreshTrades = useCallback(async () => {
+    try {
+      setError(null);
+      const updatedTrades = await db.getAllTrades();
+      setTrades(updatedTrades);
+      setFilteredTrades(updatedTrades);
+    } catch (err) {
+      console.error('Error refreshing trades:', err);
+      setError(err instanceof Error ? err.message : 'Failed to refresh trades');
+    }
+  }, []);
+
+  // Use refreshTrades as the onExitAdded callback
+  const handleExitAdded = useCallback(() => {
+    refreshTrades();
+  }, [refreshTrades]);
 
   if (loading) {
     return (

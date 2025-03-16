@@ -2,8 +2,10 @@
     "mcpServers": {
       "supabase": {
         "command": "npx",
-        "args": ["-y", "@modelcontextprotocol/server-postgres", "postgresql://postgres:eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN4dnd2b3RteWptaGttb291ZXd0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDEzNDYyMTMsImV4cCI6MjA1NjkyMjIxM30.jw7N2I_1JBCqApSSLIyj07PJBTBccUFIB9XXDje7_88@db.cxvwvotmyjmhkmoouewt.supabase.co:5432/postgres"]
+        "args": ["-y", "@modelcontextprotocol/server-postgres", "postgresql://postgres:R6Ldx01NjG5epnk5@db.cxvwvotmyjmhkmoouewt.supabase.co:5432/postgres"]
       }
     }
   }
+  
+
   

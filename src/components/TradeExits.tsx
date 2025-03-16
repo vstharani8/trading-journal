@@ -107,22 +107,24 @@ export default function TradeExits({ trade, onExitAdded }: TradeExitsProps) {
   const handleDeleteExit = async (exitId: string) => {
     try {
       setIsDeleting(exitId);
-      await db.deleteTradeExit(exitId);
-
-      // If this was the last exit, update trade status to open
-      const remainingExits = trade.exits.filter(exit => exit.id !== exitId);
-      if (remainingExits.length === 0) {
-        await db.updateTrade({
-          ...trade,
-          status: 'open',
-          exit_date: null,
-          exit_price: null,
-          average_exit_price: null
-        });
+      setError(null);
+      
+      // Get the exit being deleted to calculate remaining quantity
+      const exitBeingDeleted = trade.exits.find(exit => exit.id === exitId);
+      if (!exitBeingDeleted) {
+        throw new Error('Exit not found');
       }
-
+      
+      // Delete the exit
+      await db.deleteTradeExit(exitId);
+      
+      // Wait a brief moment for the database trigger to complete
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Notify parent component to refresh the data
       onExitAdded();
     } catch (err) {
+      console.error('Error deleting exit:', err);
       setError(err instanceof Error ? err.message : 'Failed to delete exit');
     } finally {
       setIsDeleting(null);
