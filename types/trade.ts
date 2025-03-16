@@ -6,6 +6,7 @@ export type TradeExit = {
   quantity: number;
   fees?: number;
   notes?: string;
+  exit_trigger?: string;
   created_at: string;
   updated_at: string;
   user_id: string;

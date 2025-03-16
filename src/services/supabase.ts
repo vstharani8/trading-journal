@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { Market } from './marketData'
-import { TradeExit } from '../../types/trade'
+import { TradeExit, TradeBase } from '../../types/trade'
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
@@ -12,38 +12,14 @@ if (!supabaseUrl || !supabaseAnonKey) {
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
 // Database types
-export interface Trade {
-  id: string
-  user_id: string
-  symbol: string
-  type: 'long' | 'short'
-  entry_date: string
-  entry_price: number | null
-  quantity: number
-  remaining_quantity: number | null
-  average_exit_price: number | null
-  exit_date: string | null
-  exit_price: number | null
-  strategy: string
-  notes: string
-  fees: number
-  stop_loss: number | null
-  take_profit: number | null
-  screenshot: string | null
-  status: 'open' | 'closed'
-  created_at: string
-  updated_at: string
-  ai_feedback_performance: string | null
-  ai_feedback_lessons: string | null
-  ai_feedback_mistakes: string | null
-  ai_feedback_generated_at: string | null
-  market_conditions: 'bullish' | 'bearish' | 'neutral' | null
-  emotional_state: 'confident' | 'uncertain' | 'neutral' | null
-  proficiency: string | null
-  growth_areas: string | null
-  exit_trigger: string | null
-  market: Market
-  exits: TradeExit[]
+export type DbTrade = TradeBase & {
+  id: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export type Trade = DbTrade & {
+  exits: TradeExit[];
 }
 
 export interface Strategy {
@@ -100,7 +76,7 @@ export const db = {
     }
   },
 
-  async addTrade(trade: Omit<Trade, 'id' | 'created_at' | 'updated_at'>): Promise<Trade> {
+  async addTrade(trade: Omit<DbTrade, 'id' | 'created_at' | 'updated_at'>): Promise<DbTrade> {
     const { data, error } = await supabase
       .from('trades')
       .insert([{ ...trade, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }])
@@ -111,7 +87,7 @@ export const db = {
     return data
   },
 
-  async updateTrade(trade: Trade): Promise<Trade> {
+  async updateTrade(trade: DbTrade): Promise<DbTrade> {
     const { data, error } = await supabase
       .from('trades')
       .update({ ...trade, updated_at: new Date().toISOString() })
