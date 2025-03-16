@@ -216,9 +216,14 @@ export const db = {
   },
 
   async addTradeExit(exit: Omit<TradeExit, 'id' | 'created_at' | 'updated_at'>) {
+    const now = new Date().toISOString();
     const { data, error } = await supabase
       .from('trade_exits')
-      .insert([exit])
+      .insert([{
+        ...exit,
+        created_at: now,
+        updated_at: now
+      }])
       .select()
       .single();
 

@@ -45,14 +45,6 @@ export default function TradeExits({ trade, onExitAdded }: TradeExitsProps) {
         throw new Error('No remaining quantity to exit');
       }
 
-      if (!newExit.quantity || newExit.quantity <= 0) {
-        throw new Error('Exit quantity must be greater than 0');
-      }
-
-      if (!newExit.exit_price || newExit.exit_price <= 0) {
-        throw new Error('Exit price must be greater than 0');
-      }
-
       if (newExit.quantity! > remainingQty) {
         throw new Error(`Exit quantity cannot exceed remaining position size (${remainingQty})`);
       }
@@ -69,27 +61,7 @@ export default function TradeExits({ trade, onExitAdded }: TradeExitsProps) {
       };
 
       // Create the exit
-      try {
-        await db.addTradeExit(exitData);
-      } catch (error) {
-        throw new Error('Failed to add exit');
-      }
-
-      // Calculate new total exited quantity
-      const newTotalExited = totalExited + (newExit.quantity || 0);
-      
-      // Prepare trade update without exits array
-      const tradeUpdate = {
-        ...trade,
-        status: newTotalExited >= trade.quantity ? 'closed' as const : 'open' as const,
-        exit_date: newTotalExited >= trade.quantity ? newExit.exit_date || null : null,
-        exit_price: newTotalExited >= trade.quantity ? newExit.exit_price : null,
-        remaining_quantity: trade.quantity - newTotalExited,
-        updated_at: new Date().toISOString()
-      };
-
-      // Update trade status
-      await db.updateTrade(tradeUpdate);
+      await db.addTradeExit(exitData);
 
       // Reset form
       setNewExit({
@@ -119,41 +91,12 @@ export default function TradeExits({ trade, onExitAdded }: TradeExitsProps) {
         .reduce((sum, exit) => sum + exit.quantity, 0);
       const availableQuantity = trade.quantity - otherExitsQuantity;
 
-      if (!editingExit.quantity || editingExit.quantity <= 0) {
-        throw new Error('Exit quantity must be greater than 0');
-      }
-
-      if (!editingExit.exit_price || editingExit.exit_price <= 0) {
-        throw new Error('Exit price must be greater than 0');
-      }
-
       if (editingExit.quantity > availableQuantity) {
         throw new Error(`Exit quantity cannot exceed available position size (${availableQuantity})`);
       }
 
       // Update the exit
-      try {
-        await db.updateTradeExit(editingExit);
-      } catch (error) {
-        throw new Error('Failed to update exit');
-      }
-
-      // Calculate new total after edit
-      const newTotalExited = otherExitsQuantity + editingExit.quantity;
-
-      // Prepare trade update without exits array
-      const tradeUpdate = {
-        ...trade,
-        status: newTotalExited >= trade.quantity ? 'closed' as const : 'open' as const,
-        exit_date: newTotalExited >= trade.quantity ? editingExit.exit_date : null,
-        exit_price: newTotalExited >= trade.quantity ? editingExit.exit_price : null,
-        remaining_quantity: trade.quantity - newTotalExited,
-        updated_at: new Date().toISOString()
-      };
-
-      // Update trade status
-      await db.updateTrade(tradeUpdate);
-
+      await db.updateTradeExit(editingExit);
       setEditingExit(null);
       onExitAdded();
     } catch (err) {
@@ -164,44 +107,9 @@ export default function TradeExits({ trade, onExitAdded }: TradeExitsProps) {
   const handleDeleteExit = async (exitId: string) => {
     try {
       setIsDeleting(exitId);
-      setError(null);
-      
-      // Get the exit being deleted
-      const exitToDelete = trade.exits.find(exit => exit.id === exitId);
-      if (!exitToDelete) {
-        throw new Error('Exit not found');
-      }
-
-      // Delete the exit
-      try {
-        await db.deleteTradeExit(exitId);
-      } catch (error) {
-        throw new Error('Failed to delete exit');
-      }
-
-      // Calculate new total exited quantity
-      const remainingExits = trade.exits.filter(exit => exit.id !== exitId);
-      const newTotalExited = remainingExits.reduce((sum, exit) => sum + exit.quantity, 0);
-
-      // Prepare trade update without exits array
-      const tradeUpdate = {
-        ...trade,
-        status: 'open' as const,
-        exit_date: null,
-        exit_price: null,
-        remaining_quantity: trade.quantity - newTotalExited,
-        updated_at: new Date().toISOString()
-      };
-
-      // Update trade status
-      await db.updateTrade(tradeUpdate);
-
-      // Reset states and refresh
-      setEditingExit(null);
-      setIsAddingExit(false);
+      await db.deleteTradeExit(exitId);
       onExitAdded();
     } catch (err) {
-      console.error('Delete exit error:', err);
       setError(err instanceof Error ? err.message : 'Failed to delete exit');
     } finally {
       setIsDeleting(null);
@@ -258,8 +166,8 @@ export default function TradeExits({ trade, onExitAdded }: TradeExitsProps) {
                 ? setEditingExit({ ...editingExit, exit_price: Number(e.target.value) })
                 : setNewExit({ ...newExit, exit_price: Number(e.target.value) })
               }
-              className="pl-7 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-              step="any"
+              className="pl-7 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+              step="0.01"
               min="0"
               required
             />
@@ -278,9 +186,9 @@ export default function TradeExits({ trade, onExitAdded }: TradeExitsProps) {
               ? setEditingExit({ ...editingExit, quantity: Number(e.target.value) })
               : setNewExit({ ...newExit, quantity: Number(e.target.value) })
             }
-            className="mt-2 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-            step="any"
-            min="0"
+            className="mt-2 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+            step="1"
+            min="1"
             max={trade.quantity - calculateTotalExitedQuantity()}
             required
           />
@@ -302,11 +210,37 @@ export default function TradeExits({ trade, onExitAdded }: TradeExitsProps) {
                 ? setEditingExit({ ...editingExit, fees: Number(e.target.value) })
                 : setNewExit({ ...newExit, fees: Number(e.target.value) })
               }
-              className="pl-7 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-              step="any"
+              className="pl-7 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+              step="0.01"
               min="0"
             />
           </div>
+        </div>
+
+        <div className="sm:col-span-2">
+          <label htmlFor="exit_trigger" className="block text-sm font-medium text-gray-700">
+            Exit Trigger
+          </label>
+          <select
+            id="exit_trigger"
+            value={exit.exit_trigger || ''}
+            onChange={(e) => exit === editingExit
+              ? setEditingExit({ ...editingExit, exit_trigger: e.target.value })
+              : setNewExit({ ...newExit, exit_trigger: e.target.value })
+            }
+            className="mt-2 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm [&>*]:truncate-none [&>*]:whitespace-normal"
+          >
+            <option value="">Select Exit Trigger</option>
+            <option value="Breakeven exit">Breakeven exit</option>
+            <option value="Market Pressure">Market Pressure</option>
+            <option value="R multiples">R multiples</option>
+            <option value="Random">Random</option>
+            <option value="Rejection">Rejection</option>
+            <option value="Setup Failed">Setup Failed</option>
+            <option value="SL">Stop Loss</option>
+            <option value="Target">Target</option>
+            <option value="Trailing SL">Trailing Stop Loss</option>
+          </select>
         </div>
 
         <div className="sm:col-span-2">
@@ -404,6 +338,7 @@ export default function TradeExits({ trade, onExitAdded }: TradeExitsProps) {
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity</th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">P/L</th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fees</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Trigger</th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Notes</th>
                 <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
@@ -427,6 +362,9 @@ export default function TradeExits({ trade, onExitAdded }: TradeExitsProps) {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     ${exit.fees?.toFixed(2) ?? '0.00'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {exit.exit_trigger || '-'}
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-900">
                     {exit.notes || '-'}
