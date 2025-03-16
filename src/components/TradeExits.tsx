@@ -14,9 +14,10 @@ export default function TradeExits({ trade, onExitAdded }: TradeExitsProps) {
     exit_date: new Date().toISOString().split('T')[0],
     exit_price: 0,
     quantity: 0,
-    fees: 0,
+    fees: undefined,
     notes: '',
   });
+  const [exitPriceText, setExitPriceText] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
 
@@ -68,10 +69,11 @@ export default function TradeExits({ trade, onExitAdded }: TradeExitsProps) {
         exit_date: new Date().toISOString().split('T')[0],
         exit_price: 0,
         quantity: 0,
-        fees: 0,
+        fees: undefined,
         notes: '',
       });
       setIsAddingExit(false);
+      setExitPriceText('');
       onExitAdded();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to add exit');
@@ -98,6 +100,7 @@ export default function TradeExits({ trade, onExitAdded }: TradeExitsProps) {
       // Update the exit
       await db.updateTradeExit(editingExit);
       setEditingExit(null);
+      setExitPriceText('');
       onExitAdded();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update exit');
@@ -174,16 +177,36 @@ export default function TradeExits({ trade, onExitAdded }: TradeExitsProps) {
               <span className="text-gray-500 sm:text-sm">$</span>
             </div>
             <input
-              type="number"
+              type="text"
               id="exit_price"
-              value={exit.exit_price}
-              onChange={(e) => exit === editingExit
-                ? setEditingExit({ ...editingExit, exit_price: Number(e.target.value) })
-                : setNewExit({ ...newExit, exit_price: Number(e.target.value) })
-              }
+              value={exitPriceText}
+              onChange={(e) => {
+                const value = e.target.value;
+                // Allow only numbers and decimal point
+                if (/^[0-9]*\.?[0-9]*$/.test(value) || value === '') {
+                  setExitPriceText(value);
+                  
+                  // Only update the numeric value if it's a valid number
+                  if (value.trim() !== '') {
+                    const numValue = parseFloat(value);
+                    if (!isNaN(numValue)) {
+                      if (exit === editingExit) {
+                        setEditingExit({ ...editingExit, exit_price: numValue });
+                      } else {
+                        setNewExit({ ...newExit, exit_price: numValue });
+                      }
+                    }
+                  } else {
+                    // Handle empty input
+                    if (exit === editingExit) {
+                      setEditingExit({ ...editingExit, exit_price: 0 });
+                    } else {
+                      setNewExit({ ...newExit, exit_price: 0 });
+                    }
+                  }
+                }
+              }}
               className="pl-7 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-              step="0.01"
-              min="0"
               required
             />
           </div>
@@ -196,15 +219,17 @@ export default function TradeExits({ trade, onExitAdded }: TradeExitsProps) {
           <input
             type="number"
             id="quantity"
-            value={exit.quantity}
-            onChange={(e) => exit === editingExit
-              ? setEditingExit({ ...editingExit, quantity: Number(e.target.value) })
-              : setNewExit({ ...newExit, quantity: Number(e.target.value) })
-            }
+            value={exit.quantity ?? ''}
+            onChange={(e) => {
+              const value = e.target.value;
+              const numValue = value ? Number(value) : 0;
+              if (exit === editingExit) {
+                setEditingExit({ ...editingExit, quantity: numValue });
+              } else {
+                setNewExit({ ...newExit, quantity: numValue });
+              }
+            }}
             className="mt-2 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-            step="1"
-            min="1"
-            max={trade.quantity - calculateTotalExitedQuantity()}
             required
           />
         </div>
@@ -220,14 +245,16 @@ export default function TradeExits({ trade, onExitAdded }: TradeExitsProps) {
             <input
               type="number"
               id="fees"
-              value={exit.fees}
-              onChange={(e) => exit === editingExit
-                ? setEditingExit({ ...editingExit, fees: Number(e.target.value) })
-                : setNewExit({ ...newExit, fees: Number(e.target.value) })
-              }
+              value={exit.fees ?? ''}
+              onChange={(e) => {
+                const value = e.target.value;
+                if (exit === editingExit) {
+                  setEditingExit({ ...editingExit, fees: value ? Number(value) : undefined });
+                } else {
+                  setNewExit({ ...newExit, fees: value ? Number(value) : undefined });
+                }
+              }}
               className="pl-7 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-              step="0.01"
-              min="0"
             />
           </div>
         </div>
@@ -310,7 +337,10 @@ export default function TradeExits({ trade, onExitAdded }: TradeExitsProps) {
         {!isAddingExit && !editingExit && trade.status === 'open' && hasRemainingQuantity() && (
           <button
             type="button"
-            onClick={() => setIsAddingExit(true)}
+            onClick={() => {
+              setIsAddingExit(true);
+              setExitPriceText('');
+            }}
             className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
           >
             Add Exit
@@ -386,7 +416,10 @@ export default function TradeExits({ trade, onExitAdded }: TradeExitsProps) {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-3">
                     <button
-                      onClick={() => setEditingExit(exit)}
+                      onClick={() => {
+                        setEditingExit(exit);
+                        setExitPriceText(exit.exit_price.toString());
+                      }}
                       className="text-indigo-600 hover:text-indigo-900"
                       disabled={!!editingExit || isAddingExit}
                     >
@@ -427,4 +460,4 @@ export default function TradeExits({ trade, onExitAdded }: TradeExitsProps) {
       )}
     </div>
   );
-} 
+}

@@ -904,11 +904,17 @@ function TradeHistory() {
                         ${trade.entry_price?.toFixed(2) || '-'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {currentQuantity}
-                        {trade.remaining_quantity !== undefined && trade.remaining_quantity !== trade.quantity && (
-                          <span className="text-gray-500 text-xs ml-1">
-                            (of {trade.quantity})
-                          </span>
+                        {trade.status === 'closed' ? (
+                          trade.quantity
+                        ) : (
+                          <>
+                            {currentQuantity}
+                            {trade.remaining_quantity !== undefined && trade.remaining_quantity !== trade.quantity && (
+                              <span className="text-gray-500 text-xs ml-1">
+                                (of {trade.quantity})
+                              </span>
+                            )}
+                          </>
                         )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">

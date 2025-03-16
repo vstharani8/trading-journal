@@ -484,8 +484,7 @@ function TradeForm() {
                     name="entry_price"
                     id="entry_price"
                     required
-                    step="0.01"
-                    value={formData.entry_price || ''}
+                    value={formData.entry_price ?? ''}
                     onChange={handleChange}
                     className="pl-7 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                   />
@@ -501,9 +500,7 @@ function TradeForm() {
                   name="quantity"
                   id="quantity"
                   required
-                  min="0"
-                  step="1"
-                  value={formData.quantity}
+                  value={formData.quantity || ''}
                   onChange={handleChange}
                   className="mt-2 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                 />
@@ -554,8 +551,7 @@ function TradeForm() {
                     type="number"
                     name="stop_loss"
                     id="stop_loss"
-                    step="0.01"
-                    value={formData.stop_loss || ''}
+                    value={formData.stop_loss ?? ''}
                     onChange={handleChange}
                     className="pl-7 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                   />
@@ -574,8 +570,7 @@ function TradeForm() {
                     type="number"
                     name="take_profit"
                     id="take_profit"
-                    step="0.01"
-                    value={formData.take_profit || ''}
+                    value={formData.take_profit ?? ''}
                     onChange={handleChange}
                     className="pl-7 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                   />
@@ -656,9 +651,6 @@ function TradeForm() {
                             setAccountRisk(newRisk);
                           }}
                           onBlur={() => calculatePositionSize()}
-                          min="0.1"
-                          max="10"
-                          step="0.1"
                           className="w-20 text-2xl font-semibold text-indigo-700 border-0 focus:ring-0 p-0"
                         />
                         <span className="text-2xl font-semibold text-indigo-700 ml-1">%</span>
