@@ -108,6 +108,19 @@ export default function TradeExits({ trade, onExitAdded }: TradeExitsProps) {
     try {
       setIsDeleting(exitId);
       await db.deleteTradeExit(exitId);
+
+      // If this was the last exit, update trade status to open
+      const remainingExits = trade.exits.filter(exit => exit.id !== exitId);
+      if (remainingExits.length === 0) {
+        await db.updateTrade({
+          ...trade,
+          status: 'open',
+          exit_date: null,
+          exit_price: null,
+          average_exit_price: null
+        });
+      }
+
       onExitAdded();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete exit');
