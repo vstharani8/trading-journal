@@ -2,47 +2,22 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { db } from '../services/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import { Trade } from '../services/supabase'
+import { Trade, TradeFormData, TradeBase } from '../../types/trade'
 import { generateTradeFeedback } from '../services/openai'
 import TradeChart from '../components/TradeChart'
 import { fetchHistoricalData, getChartDateRange, CandleData, Market } from '../services/marketData'
-
-type TradeFormData = {
-  symbol: string
-  type: 'long' | 'short'
-  entry_date: string
-  exit_date: string | null
-  entry_price: number | null
-  exit_price: number | null
-  quantity: number
-  strategy: string
-  notes: string
-  fees: number
-  stop_loss: number | null
-  take_profit: number | null
-  screenshot: string | null
-  status: 'open' | 'closed'
-  user_id: string
-  market_conditions?: 'bullish' | 'bearish' | 'neutral' | null
-  emotional_state?: 'confident' | 'uncertain' | 'neutral' | null
-  proficiency?: string | null
-  growth_areas?: string | null
-  exit_trigger?: string | null
-  ai_feedback_performance?: string | null
-  ai_feedback_lessons?: string | null
-  ai_feedback_mistakes?: string | null
-  ai_feedback_generated_at?: string | null
-  market: Market
-}
+import TradeExits from '../components/TradeExits'
 
 const initialFormData: TradeFormData = {
   symbol: '',
   type: 'long',
   entry_date: new Date().toISOString().split('T')[0],
-  exit_date: null,
   entry_price: null,
-  exit_price: null,
   quantity: 0,
+  remaining_quantity: null,
+  average_exit_price: null,
+  exit_date: null,
+  exit_price: null,
   strategy: '',
   notes: '',
   fees: 0,
@@ -68,6 +43,7 @@ function TradeForm() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const [formData, setFormData] = useState<TradeFormData>(initialFormData)
+  const [tradeData, setTradeData] = useState<Trade | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
@@ -110,7 +86,7 @@ function TradeForm() {
     if (formData.symbol && formData.entry_date) {
       loadChartData();
     }
-  }, [formData.symbol, formData.entry_date, formData.exit_date, formData.market]);
+  }, [formData.symbol, formData.entry_date, formData.market]);
 
   const loadStrategies = async () => {
     try {
@@ -129,20 +105,30 @@ function TradeForm() {
       if (!trade) {
         throw new Error('Trade not found')
       }
+      
+      // Ensure trade.exits is always an array
+      const tradeWithExits = {
+        ...trade,
+        exits: trade.exits || []
+      }
+      setTradeData(tradeWithExits)
+      
       setFormData({
         symbol: trade.symbol,
         type: trade.type,
         entry_date: trade.entry_date.split('T')[0],
-        exit_date: trade.exit_date?.split('T')[0] || null,
         entry_price: trade.entry_price,
-        exit_price: trade.exit_price,
         quantity: trade.quantity,
-        strategy: trade.strategy,
+        remaining_quantity: trade.remaining_quantity || null,
+        average_exit_price: trade.average_exit_price || null,
+        exit_date: trade.exit_date,
+        exit_price: trade.exit_price,
+        strategy: trade.strategy || '',
         notes: trade.notes || '',
-        fees: trade.fees,
-        stop_loss: trade.stop_loss,
-        take_profit: trade.take_profit,
-        screenshot: trade.screenshot,
+        fees: trade.fees || 0,
+        stop_loss: trade.stop_loss || null,
+        take_profit: trade.take_profit || null,
+        screenshot: trade.screenshot || null,
         status: trade.status,
         user_id: trade.user_id,
         market_conditions: trade.market_conditions || null,
@@ -203,8 +189,8 @@ function TradeForm() {
     try {
       setChartError(null);
       const { startDate, endDate } = getChartDateRange(
-        formData.entry_date, 
-        formData.exit_date
+        formData.entry_date,
+        null // No exit date in form data
       );
       const data = await fetchHistoricalData(
         formData.symbol, 
@@ -223,63 +209,50 @@ function TradeForm() {
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
     try {
-      setLoading(true)
-      setError(null)
-      setSuccess(null)
+      setLoading(true);
+      setError(null);
+      setSuccess(null);
 
-      // Validate required fields
-      if (!formData.user_id) {
-        throw new Error('User ID is required. Please ensure you are logged in.')
+      if (!formData.entry_price) {
+        throw new Error('Entry price is required');
       }
 
-      // Validate that closed trades must have an exit date
-      if (formData.status === 'closed' && !formData.exit_date) {
-        throw new Error('Exit date is required for closed trades')
-      }
-
-      // Prepare the submission data with all fields
-      const now = new Date().toISOString();
+      // Prepare the submission data
       const submitData = {
         ...formData,
         entry_date: new Date(formData.entry_date).toISOString(),
-        exit_date: formData.exit_date ? new Date(formData.exit_date).toISOString() : null,
-        notes: formData.notes || '', // Ensure notes is never null
-        fees: formData.fees || 0, // Ensure fees is never null
-        strategy: formData.strategy || 'Unknown', // Ensure strategy is never null
-        market_conditions: formData.market_conditions || null,
-        emotional_state: formData.emotional_state || null,
-        proficiency: formData.proficiency || null,
-        growth_areas: formData.growth_areas || null,
-        exit_trigger: formData.exit_trigger || null,
-        // Preserve existing AI feedback if available
-        ai_feedback_performance: formData.ai_feedback_performance || null,
-        ai_feedback_lessons: formData.ai_feedback_lessons || null,
-        ai_feedback_mistakes: formData.ai_feedback_mistakes || null,
-        ai_feedback_generated_at: formData.ai_feedback_generated_at || null,
-        created_at: now,
-        updated_at: now
-      }
+        entry_price: formData.entry_price,
+        quantity: formData.quantity,
+        remaining_quantity: formData.quantity, // Set initial remaining quantity
+        average_exit_price: null // No exits yet
+      };
 
       if (id) {
+        // For updates, we need to include the id and timestamps
+        const now = new Date().toISOString();
         await db.updateTrade({
           ...submitData,
-          id
-        })
-        setSuccess('Trade updated successfully')
+          id,
+          created_at: now,
+          updated_at: now,
+          exits: [] // Include empty exits array for type compatibility
+        });
+        setSuccess('Trade updated successfully');
       } else {
-        await db.addTrade(submitData)
-        setSuccess('Trade created successfully')
+        // For new trades
+        await db.addTrade(submitData);
+        setSuccess('Trade created successfully');
       }
-      setTimeout(() => navigate('/trades'), 1500)
+      setTimeout(() => navigate('/trades'), 1500);
     } catch (err) {
-      console.error('Error saving trade:', err)
-      setError(err instanceof Error ? err.message : 'Failed to save trade')
+      console.error('Error saving trade:', err);
+      setError(err instanceof Error ? err.message : 'Failed to save trade');
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
@@ -448,21 +421,6 @@ function TradeForm() {
             </div>
 
             <div>
-              <label htmlFor="exit_date" className="block text-sm font-medium text-gray-700">
-                Exit Date {formData.status === 'closed' && <span className="text-red-500">*</span>}
-              </label>
-              <input
-                type="date"
-                name="exit_date"
-                id="exit_date"
-                required={formData.status === 'closed'}
-                value={formData.exit_date || ''}
-                onChange={handleChange}
-                className="mt-2 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-              />
-            </div>
-
-            <div>
               <label htmlFor="entry_price" className="block text-sm font-medium text-gray-700">
                 Entry Price
               </label>
@@ -477,26 +435,6 @@ function TradeForm() {
                   required
                   step="0.01"
                   value={formData.entry_price || ''}
-                  onChange={handleChange}
-                  className="pl-7 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label htmlFor="exit_price" className="block text-sm font-medium text-gray-700">
-                Exit Price
-              </label>
-              <div className="mt-2 relative rounded-lg shadow-sm">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <span className="text-gray-500 sm:text-sm">$</span>
-                </div>
-                <input
-                  type="number"
-                  name="exit_price"
-                  id="exit_price"
-                  step="0.01"
-                  value={formData.exit_price || ''}
                   onChange={handleChange}
                   className="pl-7 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                 />
@@ -857,7 +795,17 @@ function TradeForm() {
                 </div>
               ) : candleData.length > 0 ? (
                 <div className="bg-gray-900 rounded-xl p-4">
-                  <TradeChart trade={formData as Trade} candleData={candleData} />
+                  <TradeChart 
+                    trade={{
+                      ...formData,
+                      id: id || '',
+                      entry_price: formData.entry_price || 0,
+                      created_at: new Date().toISOString(),
+                      updated_at: new Date().toISOString(),
+                      exits: []
+                    }} 
+                    candleData={candleData} 
+                  />
                 </div>
               ) : (
                 <div className="flex justify-center items-center h-64 bg-gray-50 rounded-xl">
@@ -880,7 +828,14 @@ function TradeForm() {
                   onClick={async () => {
                     try {
                       setLoading(true);
-                      const feedback = await generateTradeFeedback(formData as Trade);
+                      const feedback = await generateTradeFeedback({
+                        ...formData,
+                        id: id || '',
+                        entry_price: formData.entry_price || 0,
+                        created_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString(),
+                        exits: []
+                      });
                       const updatedFormData = {
                         ...formData,
                         ai_feedback_performance: feedback.performance,
@@ -896,7 +851,8 @@ function TradeForm() {
                           ...updatedFormData,
                           id,
                           created_at: now,
-                          updated_at: now
+                          updated_at: now,
+                          exits: []
                         });
                         setSuccess('AI analysis saved successfully');
                       }
@@ -983,6 +939,25 @@ function TradeForm() {
           )}
         </form>
       </div>
+
+      {/* Add the TradeExits component after the form */}
+      {id && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-xl p-8 border border-white/20">
+            <TradeExits
+              trade={{
+                ...formData,
+                id,
+                entry_price: formData.entry_price || 0,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+                exits: tradeData?.exits || []
+              }}
+              onExitAdded={() => loadTrade()}
+            />
+          </div>
+        </div>
+      )}
     </div>
   )
 }

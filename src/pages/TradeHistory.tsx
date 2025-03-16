@@ -81,48 +81,102 @@ function TradeHistory() {
   }
 
   const calculateProfitLoss = (trade: Trade): number => {
-    if (!trade.exit_price || !trade.entry_price) return 0
-    return trade.type === 'long'
-      ? (trade.exit_price - trade.entry_price) * trade.quantity
-      : (trade.entry_price - trade.exit_price) * trade.quantity
+    if (!trade.entry_price) return 0;
+    
+    // For old trades with exit_price
+    if (trade.exit_price !== null && trade.exit_price !== undefined) {
+      return trade.type === 'long'
+        ? (trade.exit_price - trade.entry_price) * trade.quantity
+        : (trade.entry_price - trade.exit_price) * trade.quantity;
+    }
+    
+    // For new trades with exits array
+    if (trade.exits && trade.exits.length > 0) {
+      return trade.exits.reduce((total, exit) => {
+        const exitPL = trade.type === 'long'
+          ? (exit.exit_price - trade.entry_price!) * exit.quantity
+          : (trade.entry_price! - exit.exit_price) * exit.quantity;
+        return total + exitPL;
+      }, 0);
+    }
+    
+    return 0;
   }
 
   const calculatePositionSize = (trade: Trade): number => {
-    if (!trade.entry_price || !userSettings?.total_capital) return 0
-    return (trade.entry_price * trade.quantity) / userSettings.total_capital * 100
+    if (!trade.entry_price || !userSettings?.total_capital) return 0;
+    const totalValue = trade.entry_price * trade.quantity;
+    return (totalValue / userSettings.total_capital) * 100;
   }
 
   const calculateTotalValue = (trade: Trade): number => {
-    if (!trade.entry_price || !trade.quantity) return 0
-    return trade.entry_price * trade.quantity
+    if (!trade.entry_price || !trade.quantity) return 0;
+    return trade.entry_price * trade.quantity;
   }
 
   const calculateProfitLossPercentage = (trade: Trade): number => {
-    if (!trade.exit_price || !trade.entry_price) return 0
-    return ((trade.exit_price - trade.entry_price) / trade.entry_price) * 100
+    if (!trade.entry_price) return 0;
+    
+    // For old trades with exit_price
+    if (trade.exit_price !== null && trade.exit_price !== undefined) {
+      return ((trade.exit_price - trade.entry_price) / trade.entry_price) * 100;
+    }
+    
+    // For new trades with exits array
+    if (trade.exits && trade.exits.length > 0) {
+      const totalExitValue = trade.exits.reduce((total, exit) => total + (exit.exit_price * exit.quantity), 0);
+      const totalExitQuantity = trade.exits.reduce((total, exit) => total + exit.quantity, 0);
+      const averageExitPrice = totalExitValue / totalExitQuantity;
+      
+      return ((averageExitPrice - trade.entry_price) / trade.entry_price) * 100;
+    }
+    
+    return 0;
   }
 
   const calculateRiskRewardRatio = (trade: Trade): number | null => {
-    // For long positions
-    if (trade.type === 'long') {
-      if (!trade.entry_price || !trade.stop_loss) return null;
-      const risk = trade.entry_price - trade.stop_loss;
-      const reward = trade.exit_price 
-        ? trade.exit_price - trade.entry_price 
-        : (trade.take_profit ? trade.take_profit - trade.entry_price : 0);
+    // For old trades, use exit_price and entry_price if stop_loss or take_profit is missing
+    if (trade.exit_price !== null && trade.exit_price !== undefined && trade.entry_price) {
+      const actualReward = Math.abs(trade.exit_price - trade.entry_price);
       
-      return risk > 0 ? reward / risk : null;
-    }
-    // For short positions
-    else {
-      if (!trade.entry_price || !trade.stop_loss) return null;
-      const risk = trade.stop_loss - trade.entry_price;
-      const reward = trade.exit_price 
-        ? trade.entry_price - trade.exit_price 
-        : (trade.take_profit ? trade.entry_price - trade.take_profit : 0);
+      // If stop_loss is missing, estimate risk as 1/2 of the reward (conservative estimate)
+      const risk = trade.stop_loss 
+        ? Math.abs(trade.entry_price - trade.stop_loss)
+        : actualReward / 2;
       
-      return risk > 0 ? reward / risk : null;
+      return risk > 0 ? actualReward / risk : null;
     }
+    
+    // For new trades with exits
+    if (trade.exits && trade.exits.length > 0 && trade.entry_price) {
+      const exitPrices = trade.exits.map(exit => exit.exit_price);
+      const bestExitPrice = trade.type === 'long' 
+        ? Math.max(...exitPrices)
+        : Math.min(...exitPrices);
+      
+      const actualReward = Math.abs(bestExitPrice - trade.entry_price);
+      
+      // If stop_loss is missing, estimate risk as 1/2 of the reward (conservative estimate)
+      const risk = trade.stop_loss 
+        ? Math.abs(trade.entry_price - trade.stop_loss)
+        : actualReward / 2;
+      
+      return risk > 0 ? actualReward / risk : null;
+    }
+    
+    // For open trades with take_profit target
+    if (trade.entry_price && trade.take_profit) {
+      const potentialReward = Math.abs(trade.take_profit - trade.entry_price);
+      
+      // If stop_loss is missing, estimate risk as 1/2 of the potential reward
+      const risk = trade.stop_loss 
+        ? Math.abs(trade.entry_price - trade.stop_loss)
+        : potentialReward / 2;
+      
+      return risk > 0 ? potentialReward / risk : null;
+    }
+    
+    return null;
   }
 
   const calculateRiskPerTrade = (trade: Trade): number => {
@@ -133,10 +187,14 @@ function TradeHistory() {
 
   const calculateTotalExposure = (trades: Trade[]): number => {
     if (!userSettings?.total_capital) return 0;
+    
     const openTrades = trades.filter(trade => trade.status === 'open');
-    const totalExposure = openTrades.reduce((sum, trade) => {
-      return sum + ((trade.entry_price || 0) * trade.quantity);
+    const totalExposure = openTrades.reduce((total, trade) => {
+      if (!trade.entry_price || !trade.quantity) return total;
+      const remainingQuantity = trade.remaining_quantity ?? trade.quantity;
+      return total + (trade.entry_price * remainingQuantity);
     }, 0);
+    
     return (totalExposure / userSettings.total_capital) * 100;
   }
 
@@ -175,37 +233,31 @@ function TradeHistory() {
     };
   }
 
-  const getPositionSizeRecommendation = (trade: Trade): {
-    recommended: number;
-    maxSize: number;
-    warning?: string;
-  } => {
+  const getPositionSizeRecommendation = (trade: Trade) => {
     if (!userSettings?.total_capital || !trade.entry_price || !trade.stop_loss) {
-      return { recommended: 0, maxSize: 0, warning: 'Missing required data for calculation' };
+      return {
+        recommended: 0,
+        warning: 'Missing required data for calculation'
+      };
     }
 
-    const riskPercentage = 2; // Default 2% risk per trade
-    const maxRiskPercentage = 5; // Maximum 5% risk per trade
-
-    const priceDistance = Math.abs(trade.entry_price - trade.stop_loss);
-    const maxLoss = (userSettings.total_capital * (riskPercentage / 100));
-    const recommendedShares = Math.floor(maxLoss / priceDistance);
+    const riskPercentage = 0.01; // 1% risk per trade
+    const maxRiskAmount = userSettings.total_capital * riskPercentage;
+    const priceRisk = Math.abs(trade.entry_price - trade.stop_loss);
     
-    const maxLossAtMaxRisk = (userSettings.total_capital * (maxRiskPercentage / 100));
-    const maxShares = Math.floor(maxLossAtMaxRisk / priceDistance);
-
-    const currentRisk = calculateRiskPerTrade(trade);
-    let warning;
-    if (currentRisk > maxRiskPercentage) {
-      warning = `Current position exceeds maximum recommended risk of ${maxRiskPercentage}%`;
-    } else if (currentRisk > riskPercentage) {
-      warning = `Current position exceeds standard risk parameter of ${riskPercentage}%`;
+    if (priceRisk === 0) {
+      return {
+        recommended: 0,
+        warning: 'Invalid stop loss'
+      };
     }
 
+    const recommendedSize = Math.floor(maxRiskAmount / priceRisk);
+    const currentQuantity = trade.remaining_quantity ?? trade.quantity;
+    
     return {
-      recommended: recommendedShares,
-      maxSize: maxShares,
-      warning
+      recommended: recommendedSize,
+      warning: currentQuantity > recommendedSize ? 'Position size exceeds recommended' : null
     };
   }
 
@@ -794,6 +846,7 @@ function TradeHistory() {
                   const totalValue = calculateTotalValue(trade)
                   const profitLossPercentage = calculateProfitLossPercentage(trade)
                   const riskRewardRatio = calculateRiskRewardRatio(trade)
+                  const currentQuantity = trade.remaining_quantity ?? trade.quantity
                   
                   return (
                     <tr 
@@ -834,13 +887,28 @@ function TradeHistory() {
                         ${trade.entry_price?.toFixed(2) || '-'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {trade.quantity}
+                        {currentQuantity}
+                        {trade.remaining_quantity !== undefined && trade.remaining_quantity !== trade.quantity && (
+                          <span className="text-gray-500 text-xs ml-1">
+                            (of {trade.quantity})
+                          </span>
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         ${totalValue > 0 ? totalValue.toFixed(2) : '-'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        ${trade.exit_price?.toFixed(2) || '-'}
+                        {trade.exit_price ? (
+                          `$${trade.exit_price.toFixed(2)}`
+                        ) : trade.exits && trade.exits.length > 0 ? (
+                          <div className="space-y-1">
+                            {trade.exits.map((exit, index) => (
+                              <div key={exit.id || index} className="text-xs">
+                                ${exit.exit_price.toFixed(2)} ({exit.quantity} shares)
+                              </div>
+                            ))}
+                          </div>
+                        ) : '-'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {positionSize.toFixed(2)}%
