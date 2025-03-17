@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Trade, TradeExit } from '../../types/trade';
 import { db } from '../services/supabase';
 
@@ -17,7 +17,6 @@ export default function TradeExits({ trade, onExitAdded }: TradeExitsProps) {
     fees: undefined,
     notes: '',
   });
-  const [exitPriceText, setExitPriceText] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
 
@@ -73,7 +72,6 @@ export default function TradeExits({ trade, onExitAdded }: TradeExitsProps) {
         notes: '',
       });
       setIsAddingExit(false);
-      setExitPriceText('');
       onExitAdded();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to add exit');
@@ -100,7 +98,6 @@ export default function TradeExits({ trade, onExitAdded }: TradeExitsProps) {
       // Update the exit
       await db.updateTradeExit(editingExit);
       setEditingExit(null);
-      setExitPriceText('');
       onExitAdded();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update exit');
@@ -148,8 +145,25 @@ export default function TradeExits({ trade, onExitAdded }: TradeExitsProps) {
     exit: Partial<TradeExit>, 
     onSubmit: (e: React.FormEvent) => Promise<void>,
     onCancel: () => void 
-  }) => (
-    <form onSubmit={onSubmit} className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-xl p-6 border border-white/20 space-y-6">
+  }) => {
+    const [localExitPrice, setLocalExitPrice] = useState(exit.exit_price?.toString() || '');
+    const [localFees, setLocalFees] = useState(exit.fees?.toString() || '');
+    const [localQuantity, setLocalQuantity] = useState(exit.quantity?.toString() || '');
+    
+    useEffect(() => {
+      setLocalExitPrice(exit.exit_price?.toString() || '');
+      setLocalFees(exit.fees?.toString() || '');
+      setLocalQuantity(exit.quantity?.toString() || '');
+    }, [exit.exit_price, exit.fees, exit.quantity]);
+    
+    return (
+    <form onSubmit={onSubmit} className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-xl p-8 border border-white/20">
+      <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center">
+        <svg className="w-6 h-6 mr-2 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+        </svg>
+        Exit Details
+      </h2>
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
         <div>
           <label htmlFor="exit_date" className="block text-sm font-medium text-gray-700">
@@ -179,29 +193,18 @@ export default function TradeExits({ trade, onExitAdded }: TradeExitsProps) {
             <input
               type="text"
               id="exit_price"
-              value={exitPriceText}
+              value={localExitPrice}
               onChange={(e) => {
                 const value = e.target.value;
-                // Allow only numbers and decimal point
-                if (/^[0-9]*\.?[0-9]*$/.test(value) || value === '') {
-                  setExitPriceText(value);
-                  
-                  // Only update the numeric value if it's a valid number
-                  if (value.trim() !== '') {
-                    const numValue = parseFloat(value);
-                    if (!isNaN(numValue)) {
-                      if (exit === editingExit) {
-                        setEditingExit({ ...editingExit, exit_price: numValue });
-                      } else {
-                        setNewExit({ ...newExit, exit_price: numValue });
-                      }
-                    }
-                  } else {
-                    // Handle empty input
+                // Allow empty input, digits, and one decimal point
+                if (value === '' || /^\d*\.?\d*$/.test(value)) {
+                  setLocalExitPrice(value);
+                  const numValue = value === '' ? 0 : parseFloat(value);
+                  if (!isNaN(numValue)) {
                     if (exit === editingExit) {
-                      setEditingExit({ ...editingExit, exit_price: 0 });
+                      setEditingExit({ ...editingExit, exit_price: numValue });
                     } else {
-                      setNewExit({ ...newExit, exit_price: 0 });
+                      setNewExit({ ...newExit, exit_price: numValue });
                     }
                   }
                 }
@@ -217,16 +220,22 @@ export default function TradeExits({ trade, onExitAdded }: TradeExitsProps) {
             Quantity (Max: {trade.quantity - calculateTotalExitedQuantity()})
           </label>
           <input
-            type="number"
+            type="text"
             id="quantity"
-            value={exit.quantity ?? ''}
+            value={localQuantity}
             onChange={(e) => {
               const value = e.target.value;
-              const numValue = value ? Number(value) : 0;
-              if (exit === editingExit) {
-                setEditingExit({ ...editingExit, quantity: numValue });
-              } else {
-                setNewExit({ ...newExit, quantity: numValue });
+              // Only allow positive integers
+              if (value === '' || /^\d+$/.test(value)) {
+                setLocalQuantity(value);
+                const numValue = value === '' ? 0 : parseInt(value, 10);
+                if (!isNaN(numValue)) {
+                  if (exit === editingExit) {
+                    setEditingExit({ ...editingExit, quantity: numValue });
+                  } else {
+                    setNewExit({ ...newExit, quantity: numValue });
+                  }
+                }
               }
             }}
             className="mt-2 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
@@ -243,15 +252,22 @@ export default function TradeExits({ trade, onExitAdded }: TradeExitsProps) {
               <span className="text-gray-500 sm:text-sm">$</span>
             </div>
             <input
-              type="number"
+              type="text"
               id="fees"
-              value={exit.fees ?? ''}
+              value={localFees}
               onChange={(e) => {
                 const value = e.target.value;
-                if (exit === editingExit) {
-                  setEditingExit({ ...editingExit, fees: value ? Number(value) : undefined });
-                } else {
-                  setNewExit({ ...newExit, fees: value ? Number(value) : undefined });
+                // Allow empty input, digits, and one decimal point
+                if (value === '' || /^\d*\.?\d*$/.test(value)) {
+                  setLocalFees(value);
+                  const numValue = value === '' ? 0 : parseFloat(value);
+                  if (!isNaN(numValue)) {
+                    if (exit === editingExit) {
+                      setEditingExit({ ...editingExit, fees: numValue });
+                    } else {
+                      setNewExit({ ...newExit, fees: numValue });
+                    }
+                  }
                 }
               }}
               className="pl-7 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
@@ -302,23 +318,24 @@ export default function TradeExits({ trade, onExitAdded }: TradeExitsProps) {
         </div>
       </div>
 
-      <div className="flex justify-end space-x-3">
+      <div className="flex justify-end space-x-4 mt-6">
         <button
           type="button"
           onClick={onCancel}
-          className="px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+          className="px-6 py-3 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200"
         >
           Cancel
         </button>
         <button
           type="submit"
-          className="px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+          className="px-6 py-3 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200"
         >
           {exit === editingExit ? 'Update Exit' : 'Add Exit'}
         </button>
       </div>
     </form>
   );
+};
 
   return (
     <div className="space-y-6">
@@ -339,11 +356,10 @@ export default function TradeExits({ trade, onExitAdded }: TradeExitsProps) {
             type="button"
             onClick={() => {
               setIsAddingExit(true);
-              setExitPriceText('');
             }}
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            className="inline-flex items-center px-6 py-3 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200"
           >
-            Add Exit
+            + Add Exit
           </button>
         )}
       </div>
@@ -418,7 +434,6 @@ export default function TradeExits({ trade, onExitAdded }: TradeExitsProps) {
                     <button
                       onClick={() => {
                         setEditingExit(exit);
-                        setExitPriceText(exit.exit_price.toString());
                       }}
                       className="text-indigo-600 hover:text-indigo-900"
                       disabled={!!editingExit || isAddingExit}

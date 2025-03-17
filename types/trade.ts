@@ -32,6 +32,7 @@ export type TradeBase = {
   screenshot: string | null;
   market_conditions: 'bullish' | 'bearish' | 'neutral' | null;
   emotional_state: 'confident' | 'uncertain' | 'neutral' | null;
+  trade_setup: string | null;
   proficiency: string | null;
   growth_areas: string | null;
   exit_trigger: string | null;

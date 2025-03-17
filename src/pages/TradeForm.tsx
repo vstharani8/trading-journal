@@ -5,44 +5,43 @@ import { useAuth } from '../contexts/AuthContext'
 import { Trade, TradeFormData, TradeBase } from '../../types/trade'
 import { generateTradeFeedback } from '../services/openai'
 import TradeChart from '../components/TradeChart'
-import { fetchHistoricalData, getChartDateRange, CandleData, Market } from '../services/marketData'
+import { fetchHistoricalData, getChartDateRange, CandleData } from '../services/marketData'
 import TradeExits from '../components/TradeExits'
-
-const initialFormData: TradeFormData = {
-  symbol: '',
-  type: 'long',
-  entry_date: new Date().toISOString().split('T')[0],
-  entry_price: null,
-  quantity: 0,
-  remaining_quantity: null,
-  average_exit_price: null,
-  exit_date: null,
-  exit_price: null,
-  strategy: '',
-  notes: '',
-  fees: 0,
-  stop_loss: null,
-  take_profit: null,
-  screenshot: null,
-  status: 'open',
-  user_id: '',
-  market_conditions: null,
-  emotional_state: null,
-  proficiency: null,
-  growth_areas: null,
-  exit_trigger: null,
-  ai_feedback_performance: null,
-  ai_feedback_lessons: null,
-  ai_feedback_mistakes: null,
-  ai_feedback_generated_at: null,
-  market: 'US'
-}
 
 function TradeForm() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { user } = useAuth()
-  const [formData, setFormData] = useState<TradeFormData>(initialFormData)
+  const [formData, setFormData] = useState<TradeFormData>({
+    symbol: '',
+    type: 'long',
+    entry_date: new Date().toISOString().split('T')[0],
+    entry_price: null,
+    quantity: 0,
+    remaining_quantity: null,
+    average_exit_price: null,
+    exit_date: null,
+    exit_price: null,
+    fees: 0,
+    strategy: '',
+    notes: '',
+    status: 'open',
+    market: 'US',
+    stop_loss: null,
+    take_profit: null,
+    screenshot: null,
+    market_conditions: null,
+    emotional_state: null,
+    trade_setup: null,
+    proficiency: null,
+    growth_areas: null,
+    exit_trigger: null,
+    ai_feedback_performance: null,
+    ai_feedback_lessons: null,
+    ai_feedback_mistakes: null,
+    ai_feedback_generated_at: null,
+    user_id: ''
+  })
   const [tradeData, setTradeData] = useState<Trade | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -133,6 +132,7 @@ function TradeForm() {
         user_id: trade.user_id,
         market_conditions: trade.market_conditions || null,
         emotional_state: trade.emotional_state || null,
+        trade_setup: trade.trade_setup || null,
         proficiency: trade.proficiency || null,
         growth_areas: trade.growth_areas || null,
         exit_trigger: trade.exit_trigger || null,
@@ -240,6 +240,7 @@ function TradeForm() {
         user_id: user?.id || '',
         market_conditions: formData.market_conditions,
         emotional_state: formData.emotional_state,
+        trade_setup: formData.trade_setup,
         proficiency: formData.proficiency,
         growth_areas: formData.growth_areas,
         exit_trigger: formData.exit_trigger,

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { db } from '../services/supabase'
 import type { Trade, UserSettings } from '../services/supabase'
@@ -495,9 +495,9 @@ function TradeHistory() {
         <div 
           className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"
           role="status"
-        />
+        </div>
       </div>
-    );
+    )
   }
 
   if (error) {

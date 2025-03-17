@@ -10,7 +10,7 @@ import {
   Legend,
   ChartOptions
 } from 'chart.js';
-import type { Trade } from '../services/supabase';
+import { format } from 'date-fns';
 
 // Register ChartJS components
 ChartJS.register(
@@ -24,7 +24,20 @@ ChartJS.register(
 );
 
 interface EquityCurveProps {
-  trades: Trade[];
+  trades: Array<{
+    entry_date: string;
+    entry_price: number | null;
+    exit_price?: number | null;
+    quantity: number;
+    type: 'long' | 'short';
+    fees?: number;
+    exits?: Array<{
+      exit_date: string;
+      exit_price: number;
+      quantity: number;
+      fees?: number;
+    }>;
+  }>;
   initialCapital: number;
 }
 
@@ -37,12 +50,30 @@ const EquityCurve: React.FC<EquityCurveProps> = ({ trades, initialCapital }) => 
   // Calculate cumulative equity
   const equityPoints = sortedTrades.reduce((acc, trade) => {
     const lastEquity = acc.length > 0 ? acc[acc.length - 1].y : initialCapital;
-    const profitLoss = trade.exit_price && trade.entry_price
-      ? (trade.exit_price - trade.entry_price) * trade.quantity
-      : 0;
+    
+    // Handle multiple exits
+    let profitLoss = 0;
+    
+    if (trade.exits && trade.exits.length > 0) {
+      // Calculate P/L from all exits
+      profitLoss = trade.exits.reduce((sum, exit) => {
+        const exitPL = trade.type === 'long'
+          ? (exit.exit_price - (trade.entry_price || 0)) * exit.quantity
+          : ((trade.entry_price || 0) - exit.exit_price) * exit.quantity;
+        return sum + exitPL - (exit.fees || 0);
+      }, 0);
+    } else if (trade.exit_price && trade.entry_price) {
+      // Legacy calculation for trades without exits array
+      profitLoss = trade.type === 'long'
+        ? (trade.exit_price - trade.entry_price) * trade.quantity
+        : (trade.entry_price - trade.exit_price) * trade.quantity;
+      
+      // Subtract fees
+      profitLoss -= (trade.fees || 0);
+    }
     
     return [...acc, {
-      x: new Date(trade.entry_date).toLocaleDateString(),
+      x: format(new Date(trade.entry_date), 'MMM d, yyyy'),
       y: lastEquity + profitLoss
     }];
   }, [] as Array<{x: string, y: number}>);

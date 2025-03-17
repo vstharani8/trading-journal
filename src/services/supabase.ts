@@ -1,5 +1,4 @@
 import { createClient } from '@supabase/supabase-js'
-import { Market } from './marketData'
 import { TradeExit, TradeBase } from '../../types/trade'
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
