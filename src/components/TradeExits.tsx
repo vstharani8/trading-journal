@@ -196,16 +196,12 @@ export default function TradeExits({ trade, onExitAdded }: TradeExitsProps) {
               value={localExitPrice}
               onChange={(e) => {
                 const value = e.target.value;
-                // Allow empty input, digits, and one decimal point
                 if (value === '' || /^\d*\.?\d*$/.test(value)) {
                   setLocalExitPrice(value);
-                  const numValue = value === '' ? 0 : parseFloat(value);
-                  if (!isNaN(numValue)) {
-                    if (exit === editingExit) {
-                      setEditingExit({ ...editingExit, exit_price: numValue });
-                    } else {
-                      setNewExit({ ...newExit, exit_price: numValue });
-                    }
+                  if (exit === editingExit) {
+                    setEditingExit({ ...editingExit, exit_price: value ? parseFloat(value) : 0 });
+                  } else {
+                    setNewExit({ ...newExit, exit_price: value ? parseFloat(value) : 0 });
                   }
                 }
               }}
