@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Trade, TradeExit } from '../../types/trade';
 import { db } from '../services/supabase';
 
@@ -162,35 +162,50 @@ export default function TradeExits({ trade, onExitAdded }: TradeExitsProps) {
       });
     }, [exit]);
 
-    // Generic handler for all numeric inputs
+    const inputRef = useRef<HTMLInputElement>(null);
     const handleInputChange = (field: 'exitPrice' | 'fees' | 'quantity', value: string) => {
-      // First update the form state
+      if (value !== '' && !/^\d*\.?\d*$/.test(value)) return;
+    
       setFormState(prev => ({
         ...prev,
         [field]: value
       }));
-      
-      // Then update the parent state if value is valid
-      if (value === '' || !isNaN(Number(value))) {
-        const numValue = value === '' ? 0 : 
-          field === 'quantity' ? parseInt(value, 10) : parseFloat(value);
-        
-        // Map the field name to the property name in the parent state
-        const propName = field === 'exitPrice' ? 'exit_price' : field;
-        
-        if (exit === editingExit) {
-          setEditingExit(prev => ({
-            ...prev!,
-            [propName]: numValue
-          }));
-        } else {
-          setNewExit(prev => ({
-            ...prev,
-            [propName]: numValue
-          }));
-        }
+    
+      // Maintain cursor position
+      if (inputRef.current) {
+        const cursorPosition = inputRef.current.selectionStart || 0;
+        setTimeout(() => inputRef.current?.setSelectionRange(cursorPosition, cursorPosition), 0);
       }
     };
+    // Generic handler for all numeric inputs
+    // const handleInputChange = (field: 'exitPrice' | 'fees' | 'quantity', value: string) => {
+    //   // First update the form state
+    //   setFormState(prev => ({
+    //     ...prev,
+    //     [field]: value
+    //   }));
+      
+    //   // Then update the parent state if value is valid
+    //   if (value === '' || !isNaN(Number(value))) {
+    //     const numValue = value === '' ? 0 : 
+    //       field === 'quantity' ? parseInt(value, 10) : parseFloat(value);
+        
+    //     // Map the field name to the property name in the parent state
+    //     const propName = field === 'exitPrice' ? 'exit_price' : field;
+        
+    //     if (exit === editingExit) {
+    //       setEditingExit(prev => ({
+    //         ...prev!,
+    //         [propName]: numValue
+    //       }));
+    //     } else {
+    //       setNewExit(prev => ({
+    //         ...prev,
+    //         [propName]: numValue
+    //       }));
+    //     }
+    //   }
+    // };
 
     return (
       <form onSubmit={onSubmit} className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-xl p-8 border border-white/20">
@@ -241,6 +256,7 @@ export default function TradeExits({ trade, onExitAdded }: TradeExitsProps) {
                 <span className="text-gray-500 sm:text-sm group-hover:text-indigo-500 transition-colors duration-200">$</span>
               </div>
               <input
+                ref={inputRef}
                 type="text"
                 id="exit_price"
                 value={formState.exitPrice}
