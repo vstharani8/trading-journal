@@ -19,6 +19,20 @@ export default function TradeExits({ trade, onExitAdded }: TradeExitsProps) {
     return trade.exits.reduce((total, exit) => total + exit.quantity, 0);
   };
 
+  // Calculate total P/L
+  const calculateTotalPnL = () => {
+    if (!trade.exits?.length) return 0;
+    return trade.exits.reduce((total, exit) => total + calculatePnL(exit), 0);
+  };
+
+  // Calculate average exit price
+  const calculateAvgExitPrice = () => {
+    if (!trade.exits?.length) return 0;
+    const totalQuantity = calculateTotalExitedQuantity();
+    const weightedSum = trade.exits.reduce((sum, exit) => sum + (exit.exit_price * exit.quantity), 0);
+    return totalQuantity > 0 ? weightedSum / totalQuantity : 0;
+  };
+
   // Check if there's remaining quantity to exit
   const hasRemainingQuantity = () => {
     const totalExited = calculateTotalExitedQuantity();
@@ -267,8 +281,47 @@ export default function TradeExits({ trade, onExitAdded }: TradeExitsProps) {
     );
   };
 
+  // Stats Component
+  const StatsBar = () => {
+    const totalExits = trade.exits?.length || 0;
+    const totalPnL = calculateTotalPnL();
+    const avgExitPrice = calculateAvgExitPrice();
+    const remaining = trade.quantity - calculateTotalExitedQuantity();
+
+    return (
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
+        <div className="bg-white/70 backdrop-blur-lg rounded-xl p-4 shadow-lg border border-white/20">
+          <h3 className="text-sm font-medium text-gray-500">Total Exits</h3>
+          <p className="mt-1 text-2xl font-semibold text-gray-900">{totalExits}</p>
+        </div>
+        
+        <div className="bg-white/70 backdrop-blur-lg rounded-xl p-4 shadow-lg border border-white/20">
+          <h3 className="text-sm font-medium text-gray-500">Total P/L</h3>
+          <p className={`mt-1 text-2xl font-semibold ${totalPnL >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+            ${totalPnL.toFixed(2)}
+          </p>
+        </div>
+        
+        <div className="bg-white/70 backdrop-blur-lg rounded-xl p-4 shadow-lg border border-white/20">
+          <h3 className="text-sm font-medium text-gray-500">Avg. Exit Price</h3>
+          <p className="mt-1 text-2xl font-semibold text-gray-900">
+            ${avgExitPrice.toFixed(2)}
+          </p>
+        </div>
+        
+        <div className="bg-white/70 backdrop-blur-lg rounded-xl p-4 shadow-lg border border-white/20">
+          <h3 className="text-sm font-medium text-gray-500">Remaining</h3>
+          <p className="mt-1 text-2xl font-semibold text-gray-900">{remaining}</p>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-6">
+      {/* Stats Bar */}
+      <StatsBar />
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <div>
