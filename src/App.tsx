@@ -10,6 +10,7 @@ import SignUp from './pages/SignUp'
 import Learning from './pages/Learning'
 import InvestmentsPage from './pages/Investments'
 import Notes from './pages/Notes'
+import OpenPositions from './pages/OpenPositions'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
@@ -112,6 +113,16 @@ function AuthenticatedRoutes() {
           <ProtectedRoute>
             <Layout>
               <Settings />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/positions"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <OpenPositions />
             </Layout>
           </ProtectedRoute>
         }

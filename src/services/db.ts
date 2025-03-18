@@ -18,6 +18,10 @@ interface Trade {
   status: 'open' | 'closed'
   createdAt: string
   updatedAt: string
+  market?: 'US' | 'IN'  // Added market field to identify the stock market
+  quantity?: number      // Added quantity field
+  remaining_quantity?: number  // Added remaining quantity field
+  entry_price?: number   // Added for compatibility with OpenPositions page
 }
 
 interface TradingJournalDB extends DBSchema {

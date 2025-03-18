@@ -1041,59 +1041,6 @@ export default function Dashboard() {
             )}
           </div>
         </div>
-
-        {/* Open Positions */}
-        <div className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-xl p-6 border border-white/20">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Open Positions</h2>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50/50">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Symbol</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Entry Date</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Entry Price</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Current Value</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white/50 divide-y divide-gray-200">
-                {trades
-                  .filter(t => t.status === 'open')
-                  .map((trade, index) => {
-                    const entryValue = (trade.entry_price || 0) * (trade.remaining_quantity || trade.quantity);
-                    return (
-                      <tr key={trade.id} className={index % 2 === 0 ? 'bg-white/50' : 'bg-gray-50/50'}>
-                        <td className="px-4 py-3 text-sm font-medium text-gray-900">{trade.symbol}</td>
-                        <td className="px-4 py-3 text-sm text-gray-900">
-                          {trade.entry_date ? format(new Date(trade.entry_date), 'MMM d, yyyy') : 'N/A'}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-right text-gray-900">
-                          ${trade.entry_price?.toFixed(2) || '0.00'}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-right text-gray-900">
-                          {trade.remaining_quantity || trade.quantity}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-right text-gray-900">
-                          ${entryValue.toFixed(2)}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-right text-gray-900">
-                          {trade.type.toUpperCase()}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                {trades.filter(t => t.status === 'open').length === 0 && (
-                  <tr>
-                    <td colSpan={6} className="px-4 py-3 text-sm text-center text-gray-500">
-                      No open positions
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
       </div>
     </div>
   );
