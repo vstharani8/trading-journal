@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
-import { Market } from './marketData'
+import { TradeExit, TradeBase } from '../../types/trade'
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
@@ -11,36 +11,14 @@ if (!supabaseUrl || !supabaseAnonKey) {
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
 // Database types
-export interface Trade {
-  id: string
-  user_id: string
-  symbol: string
-  type: 'long' | 'short'
-  entry_date: string
-  exit_date: string | null
-  entry_price: number | null
-  exit_price: number | null
-  quantity: number
-  strategy: string
-  notes: string
-  fees: number
-  stop_loss: number | null
-  take_profit: number | null
-  screenshot: string | null
-  status: 'open' | 'closed'
-  created_at: string
-  updated_at: string
-  ai_feedback_performance: string | null
-  ai_feedback_lessons: string | null
-  ai_feedback_mistakes: string | null
-  ai_feedback_generated_at: string | null
-  market_conditions?: 'bullish' | 'bearish' | 'neutral' | null
-  trade_setup?: string | null
-  emotional_state?: 'confident' | 'uncertain' | 'neutral' | null
-  proficiency?: string | null
-  growth_areas?: string | null
-  exit_trigger?: string | null
-  market: Market
+export type DbTrade = TradeBase & {
+  id: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export type Trade = DbTrade & {
+  exits: TradeExit[];
 }
 
 export interface Strategy {
@@ -67,25 +45,37 @@ export const db = {
   async getAllTrades(): Promise<Trade[]> {
     const { data, error } = await supabase
       .from('trades')
-      .select('*')
+      .select('*, trade_exits(*)')
       .order('entry_date', { ascending: false })
 
     if (error) throw error
-    return data || []
+    
+    // Transform the response to match our Trade type
+    return (data || []).map(trade => ({
+      ...trade,
+      exits: trade.trade_exits || []
+    }))
   },
 
   async getTrade(id: string): Promise<Trade | null> {
     const { data, error } = await supabase
       .from('trades')
-      .select('*')
+      .select('*, trade_exits(*)')
       .eq('id', id)
       .single()
 
     if (error) throw error
-    return data
+    
+    if (!data) return null
+
+    // Transform the response to match our Trade type
+    return {
+      ...data,
+      exits: data.trade_exits || []
+    }
   },
 
-  async addTrade(trade: Omit<Trade, 'id' | 'created_at' | 'updated_at'>): Promise<Trade> {
+  async addTrade(trade: Omit<DbTrade, 'id' | 'created_at' | 'updated_at'>): Promise<DbTrade> {
     const { data, error } = await supabase
       .from('trades')
       .insert([{ ...trade, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }])
@@ -96,7 +86,7 @@ export const db = {
     return data
   },
 
-  async updateTrade(trade: Trade): Promise<Trade> {
+  async updateTrade(trade: DbTrade): Promise<DbTrade> {
     const { data, error } = await supabase
       .from('trades')
       .update({ ...trade, updated_at: new Date().toISOString() })
@@ -222,5 +212,53 @@ export const db = {
       .eq('id', tradeId)
 
     if (error) throw error
-  }
+  },
+
+  async addTradeExit(exit: Omit<TradeExit, 'id' | 'created_at' | 'updated_at'>) {
+    const now = new Date().toISOString();
+    const { data, error } = await supabase
+      .from('trade_exits')
+      .insert([{
+        ...exit,
+        created_at: now,
+        updated_at: now
+      }])
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  async getTradeExits(tradeId: string) {
+    const { data, error } = await supabase
+      .from('trade_exits')
+      .select('*')
+      .eq('trade_id', tradeId)
+      .order('exit_date', { ascending: true });
+
+    if (error) throw error;
+    return data;
+  },
+
+  async updateTradeExit(exit: Partial<TradeExit> & { id: string }) {
+    const { data, error } = await supabase
+      .from('trade_exits')
+      .update(exit)
+      .eq('id', exit.id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  async deleteTradeExit(exitId: string) {
+    const { error } = await supabase
+      .from('trade_exits')
+      .delete()
+      .eq('id', exitId);
+
+    if (error) throw error;
+  },
 } 

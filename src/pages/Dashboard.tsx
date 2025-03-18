@@ -20,11 +20,29 @@ import {
 } from 'recharts';
 import { format, parseISO, startOfMonth, endOfMonth, eachMonthOfInterval, subMonths, isWithinInterval } from 'date-fns';
 
-interface Trade extends BaseTradeType {
+// Define the TradeExit type locally if it's not exported from supabase
+interface TradeExit {
+  id: string;
+  trade_id: string;
+  exit_date: string;
+  exit_price: number;
+  quantity: number;
+  fees?: number;
+  notes?: string;
+  exit_trigger?: string;
+  created_at: string;
+  updated_at: string;
+  user_id: string;
+}
+
+// Extend the base trade type for dashboard-specific properties
+interface DashboardTrade extends Omit<BaseTradeType, 'proficiency' | 'growth_areas' | 'exit_trigger'> {
   proficiency?: string | null;
   growth_areas?: string | null;
   exit_trigger?: string | null;
   portfolioImpact?: number;
+  calculatedPL?: number;
+  exits: TradeExit[];
 }
 
 interface DashboardStats {
@@ -32,8 +50,8 @@ interface DashboardStats {
   winRate: number;
   totalProfitLoss: number;
   averageRR: number;
-  bestTrade: Trade | null;
-  worstTrade: Trade | null;
+  bestTrade: DashboardTrade | null;
+  worstTrade: DashboardTrade | null;
 }
 
 interface MonthlyData {
@@ -73,7 +91,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [monthlyData, setMonthlyData] = useState<MonthlyData[]>([]);
-  const [trades, setTrades] = useState<Trade[]>([]);
+  const [trades, setTrades] = useState<DashboardTrade[]>([]);
   const [userSettings, setUserSettings] = useState<UserSettings | null>(null);
   const [stats, setStats] = useState<DashboardStats>({
     totalTrades: 0,
@@ -105,7 +123,7 @@ export default function Dashboard() {
     }
   };
 
-  const calculateMonthlyData = (trades: Trade[]) => {
+  const calculateMonthlyData = (trades: DashboardTrade[]) => {
     console.log('Initial capital:', userSettings?.total_capital);
     
     const last6Months = eachMonthOfInterval({
@@ -116,40 +134,52 @@ export default function Dashboard() {
     console.log('Last 6 months:', last6Months);
 
     const monthlyStats = last6Months.map(month => {
+      // For trades with exits, use the exit dates to determine if they belong to this month
       const monthTrades = trades.filter(trade => {
-        if (!trade.exit_date) return false;
-        const tradeDate = parseISO(trade.exit_date);
-        return isWithinInterval(tradeDate, {
-          start: startOfMonth(month),
-          end: endOfMonth(month)
-        });
+        // If the trade has exits, check if any exit falls within this month
+        if (trade.exits && trade.exits.length > 0) {
+          return trade.exits.some(exit => {
+            const exitDate = parseISO(exit.exit_date);
+            return isWithinInterval(exitDate, {
+              start: startOfMonth(month),
+              end: endOfMonth(month)
+            });
+          });
+        } 
+        // For trades without exits but with exit_date, use the legacy approach
+        else if (trade.exit_date) {
+          const tradeDate = parseISO(trade.exit_date);
+          return isWithinInterval(tradeDate, {
+            start: startOfMonth(month),
+            end: endOfMonth(month)
+          });
+        }
+        
+        return false;
       });
 
       const closedTrades = monthTrades.filter(t => t.status === 'closed');
       
-      // Calculate win rate and profitable trades
-      const profitableTrades = closedTrades.filter(t => {
-        if (!t.exit_price || !t.entry_price) return false;
-        return t.type === 'long' 
-          ? t.exit_price > t.entry_price 
-          : t.exit_price < t.entry_price;
-      });
+      // Calculate win rate and profitable trades based on calculatedPL
+      const profitableTrades = closedTrades.filter(t => (t.calculatedPL || 0) > 0);
       
       const winRate = closedTrades.length > 0
         ? (profitableTrades.length / closedTrades.length) * 100
         : 0;
 
-      // Calculate gains and losses
+      // Calculate gains and losses using calculatedPL
       const gains = profitableTrades.map(t => {
-        if (!t.exit_price || !t.entry_price) return 0;
-        return ((t.type === 'long' ? t.exit_price - t.entry_price : t.entry_price - t.exit_price) / t.entry_price) * 100;
+        const pl = t.calculatedPL || 0;
+        const entryValue = (t.entry_price || 0) * t.quantity;
+        return entryValue > 0 ? (pl / entryValue) * 100 : 0;
       });
 
       const losses = closedTrades
-        .filter(t => !profitableTrades.includes(t))
+        .filter(t => (t.calculatedPL || 0) <= 0)
         .map(t => {
-          if (!t.exit_price || !t.entry_price) return 0;
-          return ((t.type === 'long' ? t.exit_price - t.entry_price : t.entry_price - t.exit_price) / t.entry_price) * 100;
+          const pl = t.calculatedPL || 0;
+          const entryValue = (t.entry_price || 0) * t.quantity;
+          return entryValue > 0 ? (pl / entryValue) * 100 : 0;
         });
 
       const averageGain = gains.length > 0 
@@ -163,17 +193,14 @@ export default function Dashboard() {
       // Calculate average position size
       const averagePositionSize = closedTrades.length > 0
         ? closedTrades.reduce((sum, trade) => {
-            const positionSize = (trade.quantity * trade.entry_price!) / (userSettings?.total_capital || 10000) * 100;
+            const positionSize = (trade.quantity * (trade.entry_price || 0)) / (userSettings?.total_capital || 10000) * 100;
             return sum + positionSize;
           }, 0) / closedTrades.length
         : 0;
 
+      // Calculate total profit/loss for the month using calculatedPL
       const profitLoss = monthTrades.reduce((sum, trade) => {
-        if (!trade.exit_price || !trade.entry_price) return sum;
-        const pl = trade.type === 'long'
-          ? (trade.exit_price - trade.entry_price) * trade.quantity
-          : (trade.entry_price - trade.exit_price) * trade.quantity;
-        return sum + pl - (trade.fees || 0);
+        return sum + (trade.calculatedPL || 0);
       }, 0);
 
       const initialCapital = userSettings?.total_capital || 10000;
@@ -207,11 +234,11 @@ export default function Dashboard() {
     }
   }, [userSettings, trades]);
 
-  const calculateTradeAnalytics = (trades: Trade[], field: 'proficiency' | 'growth_areas' | 'exit_trigger') => {
+  const calculateTradeAnalytics = (trades: DashboardTrade[], field: 'proficiency' | 'growth_areas' | 'exit_trigger') => {
     const analytics = new Map<string, TradeAnalytics>();
     
     trades
-      .filter(trade => trade.exit_price !== null && trade.entry_price !== null && trade[field])
+      .filter(trade => trade.status === 'closed' && trade[field])
       .forEach(trade => {
         const value = trade[field] || 'Unknown';
         const existing = analytics.get(value) || {
@@ -221,10 +248,7 @@ export default function Dashboard() {
           winRate: 0
         };
 
-        const pl = trade.type === 'long'
-          ? (trade.exit_price! - trade.entry_price!) * trade.quantity
-          : (trade.entry_price! - trade.exit_price!) * trade.quantity;
-
+        const pl = trade.calculatedPL || 0;
         const isWin = pl > 0;
 
         analytics.set(value, {
@@ -247,44 +271,62 @@ export default function Dashboard() {
       // Calculate portfolio impact for each trade
       const tradesWithImpact = allTrades.map(trade => {
         let portfolioImpact = 0;
-        if (trade.exit_price && trade.entry_price && trade.status === 'closed') {
-          const pl = trade.type === 'long'
-            ? (trade.exit_price - trade.entry_price) * trade.quantity
-            : (trade.entry_price - trade.exit_price) * trade.quantity;
-          const fees = trade.fees || 0;
-          const netPL = pl - fees;
+        let totalPL = 0;
+        
+        if (trade.status === 'closed') {
+          if (trade.exits && trade.exits.length > 0) {
+            // Calculate P/L from all exits
+            totalPL = trade.exits.reduce((sum, exit) => {
+              const exitPL = trade.type === 'long'
+                ? (exit.exit_price - (trade.entry_price || 0)) * exit.quantity
+                : ((trade.entry_price || 0) - exit.exit_price) * exit.quantity;
+              return sum + exitPL - (exit.fees || 0);
+            }, 0);
+          } else if (trade.exit_price && trade.entry_price) {
+            // Legacy calculation for trades without exits array
+            totalPL = trade.type === 'long'
+              ? (trade.exit_price - trade.entry_price) * trade.quantity
+              : (trade.entry_price - trade.exit_price) * trade.quantity;
+            
+            // Subtract fees
+            totalPL -= (trade.fees || 0);
+          }
+          
           const initialCapital = userSettings?.total_capital || 10000;
-          portfolioImpact = (netPL / initialCapital) * 100;
+          portfolioImpact = (totalPL / initialCapital) * 100;
         }
-        return { ...trade, portfolioImpact };
+        
+        return { ...trade, portfolioImpact, calculatedPL: totalPL };
       });
 
       setTrades(tradesWithImpact);
       
       // Calculate dashboard statistics
       const closedTrades = tradesWithImpact.filter(trade => trade.status === 'closed');
+      
+      // A trade is profitable if its total P/L is positive
       const profitableTrades = closedTrades.filter(trade => 
-        trade.exit_price && trade.entry_price && 
-        (trade.type === 'long' ? trade.exit_price > trade.entry_price : trade.exit_price < trade.entry_price)
+        (trade.calculatedPL || 0) > 0
       );
 
       const totalPL = closedTrades.reduce((sum, trade) => {
-        if (!trade.exit_price || !trade.entry_price) return sum;
-        const pl = trade.type === 'long'
-          ? (trade.exit_price - trade.entry_price) * trade.quantity
-          : (trade.entry_price - trade.exit_price) * trade.quantity;
-        return sum + pl;
+        return sum + (trade.calculatedPL || 0);
       }, 0);
 
       const averageRR = closedTrades.reduce((sum, trade) => {
-        if (!trade.exit_price || !trade.entry_price || !trade.stop_loss) return sum;
-        const risk = trade.type === 'long'
+        if (!trade.entry_price || !trade.stop_loss) return sum;
+        
+        // Calculate total reward
+        let reward = trade.calculatedPL || 0;
+        
+        // Calculate risk based on stop loss
+        const riskPerShare = trade.type === 'long'
           ? trade.entry_price - trade.stop_loss
           : trade.stop_loss - trade.entry_price;
-        const reward = trade.type === 'long'
-          ? trade.exit_price - trade.entry_price
-          : trade.entry_price - trade.exit_price;
-        return risk > 0 ? sum + (reward / risk) : sum;
+        
+        const totalRisk = riskPerShare * trade.quantity;
+        
+        return totalRisk > 0 ? sum + (reward / totalRisk) : sum;
       }, 0) / (closedTrades.length || 1);
 
       setStats({
@@ -294,24 +336,16 @@ export default function Dashboard() {
         averageRR: averageRR,
         bestTrade: profitableTrades.reduce((best, trade) => {
           if (!best) return trade;
-          const currentPL = trade.exit_price && trade.entry_price
-            ? ((trade.exit_price - trade.entry_price) / trade.entry_price) * 100
-            : 0;
-          const bestPL = best.exit_price && best.entry_price
-            ? ((best.exit_price - best.entry_price) / best.entry_price) * 100
-            : 0;
+          const currentPL = trade.calculatedPL || 0;
+          const bestPL = best.calculatedPL || 0;
           return currentPL > bestPL ? trade : best;
-        }, null as Trade | null),
+        }, null as DashboardTrade | null),
         worstTrade: closedTrades.reduce((worst, trade) => {
           if (!worst) return trade;
-          const currentPL = trade.exit_price && trade.entry_price
-            ? ((trade.exit_price - trade.entry_price) / trade.entry_price) * 100
-            : 0;
-          const worstPL = worst.exit_price && worst.entry_price
-            ? ((worst.exit_price - worst.entry_price) / worst.entry_price) * 100
-            : 0;
+          const currentPL = trade.calculatedPL || 0;
+          const worstPL = worst.calculatedPL || 0;
           return currentPL < worstPL ? trade : worst;
-        }, null as Trade | null)
+        }, null as DashboardTrade | null)
       });
 
       // Calculate monthly performance data
@@ -321,7 +355,7 @@ export default function Dashboard() {
       const strategyMap = new Map<string, StrategyPerformance>();
       
       tradesWithImpact
-        .filter(trade => trade.exit_price !== null && trade.entry_price !== null && trade.strategy)
+        .filter(trade => trade.entry_price !== null && trade.strategy)
         .forEach(trade => {
           const strategy = trade.strategy || 'Unknown';
           const existing = strategyMap.get(strategy) || {
@@ -338,21 +372,21 @@ export default function Dashboard() {
             grossLoss: 0
           };
 
-          const pl = trade.type === 'long'
-            ? (trade.exit_price! - trade.entry_price!) * trade.quantity
-            : (trade.entry_price! - trade.exit_price!) * trade.quantity;
+          // Only include closed trades or trades with exits in P/L calculations
+          if (trade.status === 'closed') {
+            const pl = trade.calculatedPL || 0;
+            const isWin = pl > 0;
 
-          const isWin = pl > 0;
-
-          strategyMap.set(strategy, {
-            ...existing,
-            totalTrades: existing.totalTrades + 1,
-            profitLoss: existing.profitLoss + pl,
-            totalWins: existing.totalWins + (isWin ? 1 : 0),
-            totalLosses: existing.totalLosses + (isWin ? 0 : 1),
-            grossProfit: existing.grossProfit + (pl > 0 ? pl : 0),
-            grossLoss: existing.grossLoss + (pl < 0 ? Math.abs(pl) : 0)
-          });
+            strategyMap.set(strategy, {
+              ...existing,
+              totalTrades: existing.totalTrades + 1,
+              profitLoss: existing.profitLoss + pl,
+              totalWins: existing.totalWins + (isWin ? 1 : 0),
+              totalLosses: existing.totalLosses + (isWin ? 0 : 1),
+              grossProfit: existing.grossProfit + (pl > 0 ? pl : 0),
+              grossLoss: existing.grossLoss + (pl < 0 ? Math.abs(pl) : 0)
+            });
+          }
         });
 
       // Calculate derived metrics for each strategy
@@ -794,7 +828,15 @@ export default function Dashboard() {
                       formatter={(value: number) => [`${value.toFixed(2)}%`, 'Portfolio Impact']}
                       labelFormatter={(label) => {
                         const trade = trades.find(t => t.symbol === label);
-                        return `${label} (${new Date(trade?.exit_date!).toLocaleDateString()})`;
+                        if (!trade) return label;
+                        
+                        if (trade.exit_date) {
+                          return `${label} (${format(new Date(trade.exit_date), 'MMM d, yyyy')})`;
+                        } else if (trade.entry_date) {
+                          return `${label} (${format(new Date(trade.entry_date), 'MMM d, yyyy')})`;
+                        } else {
+                          return label;
+                        }
                       }}
                     />
                     <ReferenceLine y={0} stroke="#E5E7EB" />
@@ -833,13 +875,17 @@ export default function Dashboard() {
                   <tbody className="divide-y divide-gray-200">
                     {trades
                       .filter(t => t.status === 'closed')
-                      .sort((a, b) => new Date(b.exit_date!).getTime() - new Date(a.exit_date!).getTime())
+                      .sort((a, b) => new Date(b.exit_date || b.entry_date).getTime() - new Date(a.exit_date || a.entry_date).getTime())
                       .slice(0, 5)
                       .map((trade, index) => (
                         <tr key={trade.id} className={index % 2 === 0 ? 'bg-white/50' : 'bg-gray-50/50'}>
                           <td className="px-4 py-3 text-sm font-medium text-gray-900">{trade.symbol}</td>
                           <td className="px-4 py-3 text-sm text-right text-gray-900">
-                            {new Date(trade.exit_date!).toLocaleDateString()}
+                            {trade.exit_date 
+                              ? format(new Date(trade.exit_date), 'MMM d, yyyy') 
+                              : trade.entry_date 
+                                ? format(new Date(trade.entry_date), 'MMM d, yyyy')
+                                : 'N/A'}
                           </td>
                           <td className={`px-4 py-3 text-sm text-right ${(trade.portfolioImpact ?? 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                             {(trade.portfolioImpact ?? 0) >= 0 ? '+' : ''}{(trade.portfolioImpact ?? 0).toFixed(2)}%
@@ -993,6 +1039,59 @@ export default function Dashboard() {
             ) : (
               <p className="mt-2 text-sm text-gray-500">No trades yet</p>
             )}
+          </div>
+        </div>
+
+        {/* Open Positions */}
+        <div className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-xl p-6 border border-white/20">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Open Positions</h2>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50/50">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Symbol</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Entry Date</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Entry Price</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Current Value</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white/50 divide-y divide-gray-200">
+                {trades
+                  .filter(t => t.status === 'open')
+                  .map((trade, index) => {
+                    const entryValue = (trade.entry_price || 0) * (trade.remaining_quantity || trade.quantity);
+                    return (
+                      <tr key={trade.id} className={index % 2 === 0 ? 'bg-white/50' : 'bg-gray-50/50'}>
+                        <td className="px-4 py-3 text-sm font-medium text-gray-900">{trade.symbol}</td>
+                        <td className="px-4 py-3 text-sm text-gray-900">
+                          {trade.entry_date ? format(new Date(trade.entry_date), 'MMM d, yyyy') : 'N/A'}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-right text-gray-900">
+                          ${trade.entry_price?.toFixed(2) || '0.00'}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-right text-gray-900">
+                          {trade.remaining_quantity || trade.quantity}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-right text-gray-900">
+                          ${entryValue.toFixed(2)}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-right text-gray-900">
+                          {trade.type.toUpperCase()}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                {trades.filter(t => t.status === 'open').length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-3 text-sm text-center text-gray-500">
+                      No open positions
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
