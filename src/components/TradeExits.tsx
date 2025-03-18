@@ -170,10 +170,23 @@ export default function TradeExits({ trade, onExitAdded }: TradeExitsProps) {
         [field]: value
       }));
       
+      // Allow empty string, numbers, and at most one decimal point
+      const isValidInput = field === 'quantity' 
+        ? /^\d*$/.test(value) // Only integers for quantity
+        : /^\d*\.?\d*$/.test(value); // Allow decimal numbers for prices
+      
       // Then update the parent state if value is valid
-      if (value === '' || !isNaN(Number(value))) {
-        const numValue = value === '' ? 0 : 
-          field === 'quantity' ? parseInt(value, 10) : parseFloat(value);
+      if (isValidInput) {
+        let numValue: number;
+        if (value === '') {
+          numValue = 0;
+        } else if (value === '.') {
+          numValue = 0;
+        } else if (value.endsWith('.')) {
+          numValue = parseFloat(value + '0');
+        } else {
+          numValue = field === 'quantity' ? parseInt(value, 10) : parseFloat(value);
+        }
         
         // Map the field name to the property name in the parent state
         const propName = field === 'exitPrice' ? 'exit_price' : field;
@@ -193,198 +206,119 @@ export default function TradeExits({ trade, onExitAdded }: TradeExitsProps) {
     };
 
     return (
-      <form onSubmit={onSubmit} className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-xl p-8 border border-white/20">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-bold text-gray-900 flex items-center">
-            <svg className="w-6 h-6 mr-2 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-            </svg>
-            {exit === editingExit ? 'Update Exit' : 'Add New Exit'}
-          </h2>
-          <div className="text-sm text-indigo-600 font-medium">
-            {exit === editingExit ? 'Editing Exit' : `Remaining: ${trade.quantity - calculateTotalExitedQuantity()}`}
-          </div>
+      <div className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-xl p-8 border border-white/20">
+        <div className="flex items-center gap-2 mb-6">
+          <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <h2 className="text-xl font-semibold text-gray-900">Add New Exit</h2>
+          <div className="ml-auto text-sm text-indigo-600">Remaining: {trade.quantity - calculateTotalExitedQuantity()}</div>
         </div>
 
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-          {/* First Row */}
-          <div className="group">
-            <label htmlFor="exit_date" className="block text-sm font-medium text-gray-700 group-hover:text-indigo-600 transition-colors duration-200">
+        <form onSubmit={onSubmit} className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+          <div>
+            <label htmlFor="exit_date" className="block text-[15px] text-gray-700">
               Exit Date
             </label>
-            <div className="mt-1 relative rounded-md shadow-sm">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <svg className="h-5 w-5 text-gray-400 group-hover:text-indigo-500 transition-colors duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-              </div>
-              <input
-                type="date"
-                id="exit_date"
-                value={exit.exit_date}
-                onChange={(e) => exit === editingExit 
-                  ? setEditingExit({ ...editingExit, exit_date: e.target.value })
-                  : setNewExit({ ...newExit, exit_date: e.target.value })
-                }
-                className="pl-10 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm transition-all duration-200"
-                required
-              />
-            </div>
+            <input
+              type="date"
+              id="exit_date"
+              value={exit.exit_date}
+              onChange={(e) => exit === editingExit 
+                ? setEditingExit({ ...editingExit, exit_date: e.target.value })
+                : setNewExit({ ...newExit, exit_date: e.target.value })
+              }
+              className="mt-1 block w-full rounded-lg bg-white/50 border-gray-200"
+              required
+            />
           </div>
 
-          <div className="group">
-            <label htmlFor="exit_price" className="block text-sm font-medium text-gray-700 group-hover:text-indigo-600 transition-colors duration-200">
+          <div>
+            <label htmlFor="exit_price" className="block text-[15px] text-gray-700">
               Exit Price
             </label>
-            <div className="mt-1 relative rounded-md shadow-sm">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <span className="text-gray-500 sm:text-sm group-hover:text-indigo-500 transition-colors duration-200">$</span>
+            <div className="mt-1 relative">
+              <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+                <span className="text-gray-500">$</span>
               </div>
               <input
-                type="text"
+                type="number"
+                step="0.01"
                 id="exit_price"
                 value={formState.exitPrice}
                 onChange={(e) => handleInputChange('exitPrice', e.target.value)}
-                className="pl-7 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm transition-all duration-200 hover:border-indigo-400"
+                className="pl-7 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                 required
-                placeholder="000.00"
-                inputMode="decimal"
+                placeholder="0.00"
               />
             </div>
           </div>
 
-          {/* Second Row */}
-          <div className="group">
-            <label htmlFor="quantity" className="block text-sm font-medium text-gray-700 group-hover:text-indigo-600 transition-colors duration-200">
+          <div>
+            <label htmlFor="quantity" className="block text-[15px] text-gray-700">
               Quantity
             </label>
-            <div className="mt-1 relative rounded-md shadow-sm">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <svg className="h-5 w-5 text-gray-400 group-hover:text-indigo-500 transition-colors duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
-                </svg>
-              </div>
+            <div className="mt-1 relative">
               <input
                 type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 id="quantity"
                 value={formState.quantity}
                 onChange={(e) => handleInputChange('quantity', e.target.value)}
-                className="pl-10 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm transition-all duration-200 hover:border-indigo-400"
+                className="block w-full rounded-lg bg-white/50 border-gray-200"
                 required
                 placeholder="0"
-                inputMode="numeric"
               />
-              <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                <span className="text-xs text-gray-500">Max: {trade.quantity - calculateTotalExitedQuantity()}</span>
+              <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none">
+                <span className="text-sm text-gray-500">Max: {trade.quantity - calculateTotalExitedQuantity()}</span>
               </div>
             </div>
           </div>
 
-          <div className="group">
-            <label htmlFor="fees" className="block text-sm font-medium text-gray-700 group-hover:text-indigo-600 transition-colors duration-200">
-              Fees
-            </label>
-            <div className="mt-1 relative rounded-md shadow-sm">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <span className="text-gray-500 sm:text-sm group-hover:text-indigo-500 transition-colors duration-200">$</span>
-              </div>
-              <input
-                type="text"
-                id="fees"
-                value={formState.fees}
-                onChange={(e) => handleInputChange('fees', e.target.value)}
-                className="pl-7 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm transition-all duration-200 hover:border-indigo-400"
-                placeholder="0.00"
-                inputMode="decimal"
-              />
-            </div>
-          </div>
-
-          {/* Third Row */}
-          <div className="group sm:col-span-2">
-            <label htmlFor="exit_trigger" className="block text-sm font-medium text-gray-700 group-hover:text-indigo-600 transition-colors duration-200">
+          <div>
+            <label htmlFor="exit_trigger" className="block text-[15px] text-gray-700">
               Exit Trigger
             </label>
-            <div className="mt-1 relative rounded-md shadow-sm">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <svg className="h-5 w-5 text-gray-400 group-hover:text-indigo-500 transition-colors duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-              </div>
-              <select
-                id="exit_trigger"
-                value={exit.exit_trigger || ''}
-                onChange={(e) => exit === editingExit
-                  ? setEditingExit({ ...editingExit, exit_trigger: e.target.value })
-                  : setNewExit({ ...newExit, exit_trigger: e.target.value })
-                }
-                className="pl-10 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm transition-all duration-200 [&>*]:truncate-none [&>*]:whitespace-normal"
-              >
-                <option value="">Select Exit Trigger</option>
-                <option value="Breakeven exit">Breakeven exit</option>
-                <option value="Market Pressure">Market Pressure</option>
-                <option value="R multiples">R multiples</option>
-                <option value="Random">Random</option>
-                <option value="Rejection">Rejection</option>
-                <option value="Setup Failed">Setup Failed</option>
-                <option value="SL">Stop Loss</option>
-                <option value="Target">Target</option>
-                <option value="Trailing SL">Trailing Stop Loss</option>
-              </select>
-            </div>
+            <select
+              id="exit_trigger"
+              value={exit.exit_trigger || ''}
+              onChange={(e) => exit === editingExit
+                ? setEditingExit({ ...editingExit, exit_trigger: e.target.value })
+                : setNewExit({ ...newExit, exit_trigger: e.target.value })
+              }
+              className="mt-1 block w-full rounded-lg bg-white/50 border-gray-200"
+            >
+              <option value="">Select Exit Trigger</option>
+              <option value="Breakeven exit">Breakeven exit</option>
+              <option value="Market Pressure">Market Pressure</option>
+              <option value="R multiples">R multiples</option>
+              <option value="Random">Random</option>
+              <option value="Rejection">Rejection</option>
+              <option value="Setup Failed">Setup Failed</option>
+              <option value="SL">Stop Loss</option>
+              <option value="Target">Target</option>
+              <option value="Trailing SL">Trailing Stop Loss</option>
+            </select>
           </div>
 
-          {/* Fourth Row */}
-          <div className="group sm:col-span-2">
-            <label htmlFor="notes" className="block text-sm font-medium text-gray-700 group-hover:text-indigo-600 transition-colors duration-200">
-              Notes
-            </label>
-            <div className="mt-1 relative rounded-md shadow-sm">
-              <textarea
-                id="notes"
-                value={exit.notes}
-                onChange={(e) => exit === editingExit
-                  ? setEditingExit({ ...editingExit, notes: e.target.value })
-                  : setNewExit({ ...newExit, notes: e.target.value })
-                }
-                className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm transition-all duration-200"
-                rows={3}
-                placeholder="Add any notes about this exit..."
-              />
-            </div>
+          <div className="sm:col-span-2 flex justify-end space-x-4 mt-4">
+            <button
+              type="button"
+              onClick={onCancel}
+              className="px-6 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 shadow-sm hover:shadow transition-all duration-200"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="px-6 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 shadow-sm hover:shadow transition-all duration-200"
+            >
+              {exit === editingExit ? 'Update Exit' : 'Add Exit'}
+            </button>
           </div>
-        </div>
-
-        <div className="flex justify-end space-x-4 mt-8">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="px-6 py-3 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 shadow-md hover:shadow-lg transition-all duration-200"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            className="px-6 py-3 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 shadow-md hover:shadow-lg transition-all duration-200"
-          >
-            {exit === editingExit ? (
-              <span className="flex items-center">
-                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-                Update Exit
-              </span>
-            ) : (
-              <span className="flex items-center">
-                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                </svg>
-                Add Exit
-              </span>
-            )}
-          </button>
-        </div>
-      </form>
+        </form>
+      </div>
     );
   };
 
