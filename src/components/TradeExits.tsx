@@ -146,80 +146,47 @@ export default function TradeExits({ trade, onExitAdded }: TradeExitsProps) {
     onSubmit: (e: React.FormEvent) => Promise<void>,
     onCancel: () => void 
   }) => {
-    // Initialize with empty strings
-    const [localExitPrice, setLocalExitPrice] = useState('');
-    const [localFees, setLocalFees] = useState('');
-    const [localQuantity, setLocalQuantity] = useState('');
+    // Initialize form state with a single object to avoid synchronization issues
+    const [formState, setFormState] = useState({
+      exitPrice: '',
+      fees: '',
+      quantity: ''
+    });
     
     // Reset form when exit changes
     useEffect(() => {
-      setLocalExitPrice(exit.exit_price?.toString() || '');
-      setLocalFees(exit.fees?.toString() || '');
-      setLocalQuantity(exit.quantity?.toString() || '');
+      setFormState({
+        exitPrice: exit.exit_price && exit.exit_price !== 0 ? exit.exit_price.toString() : '',
+        fees: exit.fees && exit.fees !== 0 ? exit.fees.toString() : '',
+        quantity: exit.quantity && exit.quantity !== 0 ? exit.quantity.toString() : ''
+      });
     }, [exit]);
 
-    const handleExitPriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      const value = e.target.value;
+    // Generic handler for all numeric inputs
+    const handleInputChange = (field: 'exitPrice' | 'fees' | 'quantity', value: string) => {
+      // First update the form state
+      setFormState(prev => ({
+        ...prev,
+        [field]: value
+      }));
       
-      // Allow empty input or valid decimal numbers
-      if (value === '' || /^\d*\.?\d*$/.test(value)) {
-        setLocalExitPrice(value);
+      // Then update the parent state if value is valid
+      if (value === '' || !isNaN(Number(value))) {
+        const numValue = value === '' ? 0 : 
+          field === 'quantity' ? parseInt(value, 10) : parseFloat(value);
         
-        // Update parent state
-        const numValue = value === '' ? 0 : parseFloat(value);
+        // Map the field name to the property name in the parent state
+        const propName = field === 'exitPrice' ? 'exit_price' : field;
+        
         if (exit === editingExit) {
           setEditingExit(prev => ({
             ...prev!,
-            exit_price: numValue
+            [propName]: numValue
           }));
         } else {
           setNewExit(prev => ({
             ...prev,
-            exit_price: numValue
-          }));
-        }
-      }
-    };
-
-    const handleQuantityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      const value = e.target.value;
-      
-      // Only allow positive integers
-      if (value === '' || /^\d+$/.test(value)) {
-        setLocalQuantity(value);
-        
-        const numValue = value === '' ? 0 : parseInt(value, 10);
-        if (exit === editingExit) {
-          setEditingExit(prev => ({
-            ...prev!,
-            quantity: numValue
-          }));
-        } else {
-          setNewExit(prev => ({
-            ...prev,
-            quantity: numValue
-          }));
-        }
-      }
-    };
-
-    const handleFeesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      const value = e.target.value;
-      
-      // Allow empty input or valid decimal numbers
-      if (value === '' || /^\d*\.?\d*$/.test(value)) {
-        setLocalFees(value);
-        
-        const numValue = value === '' ? 0 : parseFloat(value);
-        if (exit === editingExit) {
-          setEditingExit(prev => ({
-            ...prev!,
-            fees: numValue
-          }));
-        } else {
-          setNewExit(prev => ({
-            ...prev,
-            fees: numValue
+            [propName]: numValue
           }));
         }
       }
@@ -276,13 +243,12 @@ export default function TradeExits({ trade, onExitAdded }: TradeExitsProps) {
               <input
                 type="text"
                 id="exit_price"
-                value={localExitPrice}
-                onChange={handleExitPriceChange}
-                className="pl-7 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm transition-all duration-200"
+                value={formState.exitPrice}
+                onChange={(e) => handleInputChange('exitPrice', e.target.value)}
+                className="pl-7 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm transition-all duration-200 hover:border-indigo-400"
                 required
+                placeholder="000.00"
                 inputMode="decimal"
-                pattern="^\d*\.?\d*$"
-                placeholder="0.00"
               />
             </div>
           </div>
@@ -301,13 +267,12 @@ export default function TradeExits({ trade, onExitAdded }: TradeExitsProps) {
               <input
                 type="text"
                 id="quantity"
-                value={localQuantity}
-                onChange={handleQuantityChange}
-                className="pl-10 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm transition-all duration-200"
+                value={formState.quantity}
+                onChange={(e) => handleInputChange('quantity', e.target.value)}
+                className="pl-10 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm transition-all duration-200 hover:border-indigo-400"
                 required
-                inputMode="numeric"
-                pattern="\d*"
                 placeholder="0"
+                inputMode="numeric"
               />
               <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
                 <span className="text-xs text-gray-500">Max: {trade.quantity - calculateTotalExitedQuantity()}</span>
@@ -326,12 +291,11 @@ export default function TradeExits({ trade, onExitAdded }: TradeExitsProps) {
               <input
                 type="text"
                 id="fees"
-                value={localFees}
-                onChange={handleFeesChange}
-                className="pl-7 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm transition-all duration-200"
-                inputMode="decimal"
-                pattern="^\d*\.?\d*$"
+                value={formState.fees}
+                onChange={(e) => handleInputChange('fees', e.target.value)}
+                className="pl-7 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm transition-all duration-200 hover:border-indigo-400"
                 placeholder="0.00"
+                inputMode="decimal"
               />
             </div>
           </div>
