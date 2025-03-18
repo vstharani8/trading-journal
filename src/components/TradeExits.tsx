@@ -47,23 +47,28 @@ export default function TradeExits({ trade, onExitAdded }: TradeExitsProps) {
         throw new Error(`Exit quantity cannot exceed remaining position size (${remainingQty})`);
       }
 
+      if (!exitData.exit_trigger) {
+        throw new Error('Please select an exit trigger');
+      }
+
       const newExit = {
         trade_id: trade.id,
         user_id: trade.user_id,
         exit_date: exitData.exit_date || new Date().toISOString().split('T')[0],
         exit_price: Number(exitData.exit_price),
         quantity: Number(exitData.quantity),
+        exit_trigger: exitData.exit_trigger,
         fees: 0,
         notes: ''
       };
 
-      console.log('Adding new exit:', newExit); // Debug log
+      console.log('Adding new exit:', newExit);
       await db.addTradeExit(newExit);
 
       setIsAddingExit(false);
       onExitAdded();
     } catch (err) {
-      console.error('Error adding exit:', err); // Debug log
+      console.error('Error adding exit:', err);
       if (err instanceof Error) {
         setError(err.message);
       } else {
@@ -128,7 +133,8 @@ export default function TradeExits({ trade, onExitAdded }: TradeExitsProps) {
     const [formData, setFormData] = useState({
       exit_date: initialData?.exit_date || new Date().toISOString().split('T')[0],
       exit_price: initialData?.exit_price?.toString() || '',
-      quantity: initialData?.quantity?.toString() || ''
+      quantity: initialData?.quantity?.toString() || '',
+      exit_trigger: initialData?.exit_trigger || ''
     });
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -137,7 +143,8 @@ export default function TradeExits({ trade, onExitAdded }: TradeExitsProps) {
       const submitData: Partial<TradeExit> = {
         exit_date: formData.exit_date,
         exit_price: formData.exit_price ? parseFloat(formData.exit_price) : undefined,
-        quantity: formData.quantity ? parseInt(formData.quantity, 10) : undefined
+        quantity: formData.quantity ? parseInt(formData.quantity, 10) : undefined,
+        exit_trigger: formData.exit_trigger || undefined
       };
       
       onSubmit(submitData);
@@ -214,6 +221,30 @@ export default function TradeExits({ trade, onExitAdded }: TradeExitsProps) {
                 </span>
               </div>
             </div>
+          </div>
+
+          <div>
+            <label htmlFor="exit_trigger" className="block text-[15px] text-gray-700">
+              Exit Trigger
+            </label>
+            <select
+              id="exit_trigger"
+              value={formData.exit_trigger}
+              onChange={(e) => setFormData(prev => ({ ...prev, exit_trigger: e.target.value }))}
+              className="mt-1 block w-full rounded-lg bg-white/50 border-gray-200"
+              required
+            >
+              <option value="">Select Exit Trigger</option>
+              <option value="Breakeven exit">Breakeven exit</option>
+              <option value="Market Pressure">Market Pressure</option>
+              <option value="R multiples">R multiples</option>
+              <option value="Random">Random</option>
+              <option value="Rejection">Rejection</option>
+              <option value="Setup Failed">Setup Failed</option>
+              <option value="SL">Stop Loss</option>
+              <option value="Target">Target</option>
+              <option value="Trailing SL">Trailing Stop Loss</option>
+            </select>
           </div>
 
           <div className="sm:col-span-2 flex justify-end space-x-4 mt-4">
