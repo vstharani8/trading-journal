@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { db } from '../services/supabase'
 import { useAuth } from '../contexts/AuthContext'
+import { ReminderSettings } from '../components/ReminderSettings'
 
 interface UserSettings {
   totalCapital: number
@@ -249,7 +250,7 @@ function Settings() {
               <label htmlFor="riskPerTrade" className="block text-sm font-medium text-gray-700">
                 Risk Per Trade (%)
               </label>
-              <div className="mt-2">
+              <div className="mt-2 relative rounded-md shadow-sm">
                 <input
                   type="number"
                   name="riskPerTrade"
@@ -259,69 +260,73 @@ function Settings() {
                   step="0.1"
                   value={settings.riskPerTrade}
                   onChange={(e) => setSettings(prev => ({ ...prev, riskPerTrade: Number(e.target.value) }))}
-                  className="focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-lg"
+                  className="focus:ring-indigo-500 focus:border-indigo-500 block w-full pr-12 sm:text-sm border-gray-300 rounded-lg"
                 />
+                <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                  <span className="text-gray-500 sm:text-sm">%</span>
+                </div>
               </div>
             </div>
 
-            <div className="pt-4">
+            <div className="flex justify-end">
               <button
-                type="button"
                 onClick={handleSaveSettings}
                 disabled={loading}
-                className="inline-flex items-center px-6 py-3 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200"
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
               >
-                {loading ? 'Saving...' : 'Save Settings'}
+                {loading ? 'Saving...' : 'Save Changes'}
               </button>
             </div>
           </div>
         </div>
 
+        {/* Stock Purchase Reminders */}
+        <div className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-xl p-6 border border-white/20">
+          <h2 className="text-xl font-semibold text-gray-900 mb-6">Stock Purchase Reminders</h2>
+          <ReminderSettings />
+        </div>
+
         {/* Trading Strategies */}
         <div className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-xl p-6 border border-white/20">
           <h2 className="text-xl font-semibold text-gray-900 mb-6">Trading Strategies</h2>
-          
-          {/* Add Strategy Form */}
-          <form onSubmit={handleAddStrategy} className="mb-6">
+          <form onSubmit={handleAddStrategy} className="space-y-4">
             <div className="flex gap-4">
               <input
                 type="text"
                 value={newStrategy}
                 onChange={(e) => setNewStrategy(e.target.value)}
-                placeholder="Enter strategy name"
-                className="flex-1 rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                placeholder="Enter new strategy"
+                className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
               />
               <button
                 type="submit"
                 disabled={loading}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
               >
                 Add Strategy
               </button>
             </div>
           </form>
 
-          {/* Strategies List */}
-          <div className="space-y-2">
-            {strategies.map((strategy) => (
-              <div
-                key={strategy}
-                className="flex items-center justify-between p-3 bg-white/50 rounded-lg border border-gray-200"
-              >
-                <span className="text-gray-900">{strategy}</span>
-                <button
-                  onClick={() => handleDeleteStrategy(strategy)}
-                  className="text-red-600 hover:text-red-800"
+          <div className="mt-6">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Your Strategies</h3>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {strategies.map((strategy) => (
+                <div
+                  key={strategy}
+                  className="flex items-center justify-between p-4 bg-white rounded-lg shadow-sm border border-gray-200"
                 >
-                  Delete
-                </button>
-              </div>
-            ))}
-            {strategies.length === 0 && (
-              <p className="text-gray-500 text-center py-4">
-                No strategies added yet
-              </p>
-            )}
+                  <span className="text-sm font-medium text-gray-900">{strategy}</span>
+                  <button
+                    onClick={() => handleDeleteStrategy(strategy)}
+                    disabled={loading}
+                    className="text-red-600 hover:text-red-800 disabled:opacity-50"
+                  >
+                    Delete
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -329,24 +334,26 @@ function Settings() {
         <div className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-xl p-6 border border-white/20">
           <h2 className="text-xl font-semibold text-gray-900 mb-6">Data Management</h2>
           <div className="space-y-4">
-            <div className="flex gap-4">
+            <div>
               <button
                 onClick={handleExport}
                 disabled={loading}
-                className="inline-flex items-center px-6 py-3 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200"
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
               >
-                {loading ? 'Exporting...' : 'Export Data'}
+                Export Data
               </button>
-              <label className="inline-flex items-center px-6 py-3 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200 cursor-pointer">
-                <span>{loading ? 'Importing...' : 'Import Data'}</span>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Import Data</label>
+              <div className="mt-2">
                 <input
                   type="file"
                   accept=".json"
                   onChange={handleImport}
-                  className="hidden"
                   disabled={loading}
+                  className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 disabled:opacity-50"
                 />
-              </label>
+              </div>
             </div>
           </div>
         </div>

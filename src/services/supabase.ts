@@ -33,6 +33,11 @@ export interface UserSettings {
   user_id: string
   total_capital: number
   risk_per_trade: number
+  reminder_enabled: boolean
+  reminder_frequency: 'daily' | 'weekly' | 'monthly' | null
+  reminder_day: number | null
+  reminder_time: string | null
+  reminder_email: string | null
   created_at: string
   updated_at: string
 }

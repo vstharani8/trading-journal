@@ -6,6 +6,7 @@ import { InvestmentModal } from '../components/investments/InvestmentModal';
 import { StockService } from '../lib/services/stockService';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../contexts/AuthContext';
+import { ReminderSettings } from '../components/ReminderSettings';
 
 export default function Investments() {
     const { user } = useAuth();
@@ -187,6 +188,11 @@ export default function Investments() {
                 <>
                     <div className="mb-8">
                         <PortfolioSummary performance={portfolioPerformance} />
+                    </div>
+
+                    <div className="mb-8 bg-white rounded-lg shadow p-6">
+                        <h2 className="text-xl font-semibold mb-4">Stock Purchase Reminders</h2>
+                        <ReminderSettings />
                     </div>
 
                     <InvestmentList
