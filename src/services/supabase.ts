@@ -159,6 +159,9 @@ export const db = {
       .upsert({
         ...settings,
         updated_at: new Date().toISOString()
+      }, {
+        onConflict: 'user_id',
+        ignoreDuplicates: false
       })
       .select()
       .single()
