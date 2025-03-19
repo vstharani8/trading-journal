@@ -32,6 +32,19 @@ export default function SignUp() {
       // Create initial user settings
       const { data: { session } } = await db.supabase.auth.getSession();
       if (session?.user) {
+        // Add default strategies
+        const defaultStrategies = [
+          'Base on Base', 'Box', 'Channel', 'Cheat', 'CwH', 'Flag', 'iH&S', 'Inside Day',
+          'Intraday', 'IPO base', 'Low Cheat', 'Pennant', 'Shakeout', 'Tight Closes',
+          'Trendline', 'Triangle', 'VCP', 'W-pattern', 'Wedge', 'Cup', 'Reversal'
+        ];
+
+        // Add each strategy
+        for (const strategy of defaultStrategies) {
+          await db.addStrategy(session.user.id, strategy);
+        }
+
+        // Create initial user settings
         await db.updateUserSettings({
           user_id: session.user.id,
           total_capital: 0,
