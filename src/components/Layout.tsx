@@ -1,5 +1,6 @@
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { ThemeToggle } from './ThemeToggle'
 
 interface LayoutProps {
   children: React.ReactNode
@@ -83,9 +84,9 @@ function Layout({ children }: LayoutProps) {
   ]
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
       {/* Sidebar */}
-      <div className="w-64 bg-white shadow-lg">
+      <div className="w-64 bg-white dark:bg-gray-800 shadow-lg">
         <div className="flex flex-col h-full">
           {/* Logo */}
           <div className="flex items-center justify-center h-16 px-4 bg-indigo-600">
@@ -98,9 +99,13 @@ function Layout({ children }: LayoutProps) {
               <Link
                 key={item.name}
                 to={item.path}
-                className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg group transition-all duration-200 ${isActive(item.path)}`}
+                className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg group transition-all duration-200 ${
+                  isActive(item.path)
+                    ? 'bg-indigo-50 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400'
+                    : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-white'
+                }`}
               >
-                <span className={`mr-3 ${isActive(item.path).includes('text-indigo-600') ? 'text-indigo-600' : 'text-gray-400 group-hover:text-gray-500'}`}>
+                <span className={`mr-3 ${isActive(item.path).includes('text-indigo-600') ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-400 dark:text-gray-500 group-hover:text-gray-500 dark:group-hover:text-gray-400'}`}>
                   {item.icon}
                 </span>
                 {item.name}
@@ -108,25 +113,30 @@ function Layout({ children }: LayoutProps) {
             ))}
           </nav>
 
-          {/* User Profile & Sign Out */}
-          <div className="p-4 border-t border-gray-200">
-            <button
-              onClick={signOut}
-              className="flex items-center w-full px-4 py-2 text-sm font-medium text-gray-600 rounded-lg hover:bg-gray-50 hover:text-gray-900"
-            >
-              <svg className="w-5 h-5 mr-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-              </svg>
-              Sign Out
-            </button>
+          {/* User Profile, Theme Toggle & Sign Out */}
+          <div className="p-4 border-t border-gray-200 dark:border-gray-700 space-y-2">
+            <div className="flex items-center justify-between">
+              <ThemeToggle />
+              <button
+                onClick={signOut}
+                className="flex items-center px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white"
+              >
+                <svg className="w-5 h-5 mr-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+                Sign Out
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 overflow-auto bg-gray-50 dark:bg-gray-900">
         <main className="p-8">
-          {children}
+          <div className="max-w-7xl mx-auto">
+            {children}
+          </div>
         </main>
       </div>
     </div>
