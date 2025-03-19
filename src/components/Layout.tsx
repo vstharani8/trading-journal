@@ -1,5 +1,6 @@
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { useState } from 'react'
 
 interface LayoutProps {
   children: React.ReactNode
@@ -8,6 +9,7 @@ interface LayoutProps {
 function Layout({ children }: LayoutProps) {
   const { signOut } = useAuth()
   const location = useLocation()
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
 
   const isActive = (path: string) => {
     return location.pathname === path
@@ -84,8 +86,29 @@ function Layout({ children }: LayoutProps) {
 
   return (
     <div className="flex h-screen bg-gray-50">
+      {/* Mobile menu button */}
+      <button
+        onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+        className="lg:hidden fixed top-4 left-4 z-50 p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500"
+      >
+        <span className="sr-only">Open sidebar</span>
+        {isSidebarOpen ? (
+          <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        ) : (
+          <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        )}
+      </button>
+
       {/* Sidebar */}
-      <div className="w-64 bg-white shadow-lg">
+      <div
+        className={`fixed inset-y-0 left-0 z-40 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out lg:translate-x-0 ${
+          isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
         <div className="flex flex-col h-full">
           {/* Logo */}
           <div className="flex items-center justify-center h-16 px-4 bg-indigo-600">
@@ -98,6 +121,7 @@ function Layout({ children }: LayoutProps) {
               <Link
                 key={item.name}
                 to={item.path}
+                onClick={() => setIsSidebarOpen(false)}
                 className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg group transition-all duration-200 ${isActive(item.path)}`}
               >
                 <span className={`mr-3 ${isActive(item.path).includes('text-indigo-600') ? 'text-indigo-600' : 'text-gray-400 group-hover:text-gray-500'}`}>
@@ -124,11 +148,19 @@ function Layout({ children }: LayoutProps) {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 overflow-auto">
-        <main className="p-8">
+      <div className="flex-1 overflow-auto lg:ml-64">
+        <main className="p-4 sm:p-6 lg:p-8">
           {children}
         </main>
       </div>
+
+      {/* Overlay for mobile */}
+      {isSidebarOpen && (
+        <div
+          className="fixed inset-0 bg-gray-600 bg-opacity-75 z-30 lg:hidden"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
     </div>
   )
 }
