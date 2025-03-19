@@ -8,6 +8,8 @@ interface PositionSummary {
     totalInvested: number;
     totalExposure: number;
     exposurePercentage: number;
+    totalPotentialLoss: number;
+    lossPercentage: number;
 }
 
 export default function OpenPositions() {
@@ -18,7 +20,9 @@ export default function OpenPositions() {
         totalPositions: 0,
         totalInvested: 0,
         totalExposure: 0,
-        exposurePercentage: 0
+        exposurePercentage: 0,
+        totalPotentialLoss: 0,
+        lossPercentage: 0
     });
 
     useEffect(() => {
@@ -53,6 +57,7 @@ export default function OpenPositions() {
         try {
             let totalInvested = 0;
             let totalExposure = 0;
+            let totalPotentialLoss = 0;
 
             // Get user settings for total capital
             const { data: { session } } = await db.supabase.auth.getSession();
@@ -61,6 +66,7 @@ export default function OpenPositions() {
 
             openPositions.forEach(position => {
                 const entryPrice = position.entry_price || (position as any).entryPrice;
+                const stopLoss = position.stop_loss;
                 
                 if (entryPrice) {
                     const remainingQuantity = position.remaining_quantity ?? position.quantity ?? (position as any).positionSize;
@@ -70,20 +76,32 @@ export default function OpenPositions() {
                     
                     if (position.type === 'long') {
                         totalExposure += positionCost;
+                        // Calculate potential loss for long positions
+                        if (stopLoss) {
+                            totalPotentialLoss += (entryPrice - stopLoss) * remainingQuantity;
+                        }
                     } else if (position.type === 'short') {
                         totalExposure -= positionCost;
+                        // Calculate potential loss for short positions
+                        if (stopLoss) {
+                            totalPotentialLoss += (stopLoss - entryPrice) * remainingQuantity;
+                        }
                     }
                 }
             });
 
             // Calculate exposure percentage
             const exposurePercentage = (Math.abs(totalExposure) / totalCapital) * 100;
+            // Calculate loss percentage based on total capital instead of invested amount
+            const lossPercentage = (Math.abs(totalPotentialLoss) / totalCapital) * 100;
 
             setPositionSummary({
                 totalPositions: openPositions.length,
                 totalInvested,
                 totalExposure: Math.abs(totalExposure),
-                exposurePercentage
+                exposurePercentage,
+                totalPotentialLoss: Math.abs(totalPotentialLoss),
+                lossPercentage
             });
         } catch (error) {
             console.error('Error calculating position summary:', error);
@@ -137,7 +155,7 @@ export default function OpenPositions() {
                 ) : (
                     <>
                         {/* Market Exposure Summary */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8 mb-8">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 lg:gap-8 mb-8">
                             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-all duration-200 transform hover:-translate-y-1">
                                 <div className="flex items-start gap-4">
                                     <div className="p-3 bg-indigo-50 rounded-xl">
@@ -177,6 +195,25 @@ export default function OpenPositions() {
                                         <h3 className="text-lg font-semibold text-gray-900">Market Exposure</h3>
                                         <p className="text-4xl font-bold text-gray-900 mt-2 tracking-tight">{positionSummary.exposurePercentage.toFixed(2)}%</p>
                                         <p className="text-sm text-gray-500 mt-1">of total capital</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-all duration-200 transform hover:-translate-y-1">
+                                <div className="flex items-start gap-4">
+                                    <div className="p-3 bg-red-50 rounded-xl">
+                                        <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" />
+                                        </svg>
+                                    </div>
+                                    <div className="flex-1">
+                                        <h3 className="text-lg font-semibold text-gray-900">Potential Loss</h3>
+                                        <div className="mt-2">
+                                            <p className="text-4xl font-bold text-red-600">
+                                                ${positionSummary.totalPotentialLoss.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                            </p>
+                                            <p className="text-lg text-red-600">({positionSummary.lossPercentage.toFixed(2)}%)</p>
+                                        </div>
+                                        <p className="text-sm text-gray-500 mt-1">based on stop losses</p>
                                     </div>
                                 </div>
                             </div>
