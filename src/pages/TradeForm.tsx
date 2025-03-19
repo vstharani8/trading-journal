@@ -47,6 +47,8 @@ function TradeForm() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [strategies, setStrategies] = useState<string[]>([])
+  const [newStrategy, setNewStrategy] = useState('')
+  const [showAddStrategy, setShowAddStrategy] = useState(false)
   const [userSettings, setUserSettings] = useState<{ 
     totalCapital: number;
     riskPerTrade: number;
@@ -306,6 +308,33 @@ function TradeForm() {
     }
   }
 
+  const handleAddStrategy = async () => {
+    const trimmedStrategy = newStrategy.trim()
+    if (!trimmedStrategy) return
+
+    try {
+      await db.addStrategy(user?.id || '', trimmedStrategy)
+      await loadStrategies() // Reload strategies
+      setNewStrategy('')
+      setShowAddStrategy(false)
+    } catch (error) {
+      console.error('Error adding strategy:', error)
+    }
+  }
+
+  const handleDeleteStrategy = async (strategy: string) => {
+    if (!window.confirm(`Are you sure you want to delete the strategy "${strategy}"?`)) {
+      return
+    }
+
+    try {
+      await db.deleteStrategy(user?.id || '', strategy)
+      await loadStrategies() // Reload strategies
+    } catch (error) {
+      console.error('Error deleting strategy:', error)
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-screen">
@@ -512,21 +541,77 @@ function TradeForm() {
                 <label htmlFor="strategy" className="block text-sm font-medium text-gray-700">
                   Strategy
                 </label>
-                <select
-                  id="strategy"
-                  name="strategy"
-                  value={formData.strategy}
-                  onChange={handleChange}
-                  className="block w-full rounded-lg border-gray-300 bg-white/50 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm transition-all duration-200"
-                  required
-                >
-                  <option value="">Select a strategy</option>
-                  {strategies.map((strategy) => (
-                    <option key={strategy} value={strategy}>
-                      {strategy}
-                    </option>
-                  ))}
-                </select>
+                <div className="flex items-center space-x-2">
+                  <select
+                    id="strategy"
+                    name="strategy"
+                    value={formData.strategy}
+                    onChange={handleChange}
+                    className="block w-full rounded-lg border-gray-300 bg-white/50 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm transition-all duration-200"
+                    required
+                  >
+                    <option value="">Select a strategy</option>
+                    {strategies.map((strategy) => (
+                      <option key={strategy} value={strategy}>
+                        {strategy}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => setShowAddStrategy(true)}
+                    className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                  >
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+                    </svg>
+                  </button>
+                  {formData.strategy && (
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteStrategy(formData.strategy)}
+                      className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                    >
+                      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+
+                {/* Add Strategy Dialog */}
+                {showAddStrategy && (
+                  <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center p-4 z-50">
+                    <div className="bg-white rounded-lg p-6 max-w-sm w-full">
+                      <h3 className="text-lg font-medium text-gray-900 mb-4">Add New Strategy</h3>
+                      <div className="space-y-4">
+                        <input
+                          type="text"
+                          value={newStrategy}
+                          onChange={(e) => setNewStrategy(e.target.value)}
+                          className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                          placeholder="Enter strategy name"
+                        />
+                        <div className="flex justify-end space-x-3">
+                          <button
+                            type="button"
+                            onClick={() => setShowAddStrategy(false)}
+                            className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleAddStrategy}
+                            className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-md"
+                          >
+                            Add
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -751,14 +836,26 @@ function TradeForm() {
                   className="mt-2 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                 >
                   <option value="">Select Growth Area</option>
-                  <option value="Emotional Control">Emotional Control</option>
-                  <option value="Entry Timing">Entry Timing</option>
-                  <option value="Exit Timing">Exit Timing</option>
-                  <option value="Position Sizing">Position Sizing</option>
-                  <option value="Risk Management">Risk Management</option>
-                  <option value="Stop Loss Placement">Stop Loss Placement</option>
-                  <option value="Take Profit Placement">Take Profit Placement</option>
-                  <option value="Trade Management">Trade Management</option>
+                  <option value="Biased Analysis">Biased Analysis</option>
+                  <option value="Booked Early">Booked Early</option>
+                  <option value="Booked Late">Booked Late</option>
+                  <option value="Didn't Book Loss">Didn't Book Loss</option>
+                  <option value="Too Tight SL">Too Tight SL</option>
+                  <option value="FOMO">FOMO</option>
+                  <option value="Illiquid Stock">Illiquid Stock</option>
+                  <option value="Illogical SL">Illogical SL</option>
+                  <option value="Lack of Patience">Lack of Patience</option>
+                  <option value="Late Entry">Late Entry</option>
+                  <option value="Momentum-less stock">Momentum-less stock</option>
+                  <option value="Overconfidence">Overconfidence</option>
+                  <option value="Overtrading">Overtrading</option>
+                  <option value="Poor Execution">Poor Execution</option>
+                  <option value="Poor Exit">Poor Exit</option>
+                  <option value="Poor Po Size">Poor Po Size</option>
+                  <option value="Poor Sector">Poor Sector</option>
+                  <option value="Poor Stock">Poor Stock</option>
+                  <option value="Shifted SL Quickly">Shifted SL Quickly</option>
+                  <option value="Too Early Entry">Too Early Entry</option>
                 </select>
               </div>
             </div>
