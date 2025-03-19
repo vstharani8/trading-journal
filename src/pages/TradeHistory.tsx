@@ -233,34 +233,6 @@ function TradeHistory() {
     };
   }
 
-  const getPositionSizeRecommendation = (trade: Trade) => {
-    if (!userSettings?.total_capital || !trade.entry_price || !trade.stop_loss) {
-      return {
-        recommended: 0,
-        warning: 'Missing required data for calculation'
-      };
-    }
-
-    const riskPercentage = 0.01; // 1% risk per trade
-    const maxRiskAmount = userSettings.total_capital * riskPercentage;
-    const priceRisk = Math.abs(trade.entry_price - trade.stop_loss);
-    
-    if (priceRisk === 0) {
-      return {
-        recommended: 0,
-        warning: 'Invalid stop loss'
-      };
-    }
-
-    const recommendedSize = Math.floor(maxRiskAmount / priceRisk);
-    const currentQuantity = trade.remaining_quantity ?? trade.quantity;
-    
-    return {
-      recommended: recommendedSize,
-      warning: currentQuantity > recommendedSize ? 'Position size exceeds recommended' : null
-    };
-  }
-
   const applyFilters = () => {
     let filtered = [...trades]
 
@@ -708,27 +680,6 @@ function TradeHistory() {
                   </>
                 );
               })()}
-            </div>
-
-            {/* Position Size Recommendations */}
-            <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl p-4 border border-emerald-100">
-              <h3 className="text-sm font-medium text-gray-500">Position Sizing</h3>
-              <div className="mt-2">
-                {trades.filter(t => t.status === 'open').map(trade => {
-                  const recommendation = getPositionSizeRecommendation(trade);
-                  return (
-                    <div key={trade.id} className="mb-2">
-                      <p className="text-sm font-medium">{trade.symbol}</p>
-                      {recommendation.warning && (
-                        <p className="text-xs text-red-600">{recommendation.warning}</p>
-                      )}
-                      <p className="text-xs text-gray-500">
-                        Recommended: {recommendation.recommended} shares
-                      </p>
-                    </div>
-                  );
-                })}
-              </div>
             </div>
           </div>
         </div>

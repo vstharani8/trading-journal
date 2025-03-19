@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { db } from '../services/supabase';
 import type { Trade as BaseTradeType, UserSettings } from '../services/supabase';
 import EquityCurve from '../components/EquityCurve';
+import DrawdownChart from '../components/DrawdownChart';
 import {
   LineChart,
   Line,
@@ -35,13 +36,13 @@ interface TradeExit {
   user_id: string;
 }
 
-// Extend the base trade type for dashboard-specific properties
+// Update the DashboardTrade type to include all necessary properties
 interface DashboardTrade extends Omit<BaseTradeType, 'proficiency' | 'growth_areas' | 'exit_trigger'> {
-  proficiency?: string | null;
-  growth_areas?: string | null;
-  exit_trigger?: string | null;
-  portfolioImpact?: number;
-  calculatedPL?: number;
+  proficiency: string | null;
+  growth_areas: string | null;
+  exit_trigger: string | null;
+  portfolioImpact: number;
+  calculatedPL: number;
   exits: TradeExit[];
 }
 
@@ -504,6 +505,18 @@ export default function Dashboard() {
           </div>
         )}
 
+        {/* Add Drawdown Analysis Chart */}
+        {userSettings && (
+          <div className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-xl border border-white/20">
+            <div className="p-6">
+              <DrawdownChart 
+                trades={trades} 
+                initialCapital={userSettings.total_capital} 
+              />
+            </div>
+          </div>
+        )}
+
         {/* Monthly Performance Chart */}
         <div className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-xl p-6 border border-white/20">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Monthly Performance</h2>
@@ -905,111 +918,6 @@ export default function Dashboard() {
                     ))}
                   </tbody>
                 </table>
-              </div>
-            </div>
-          </div>
-
-          {/* Existing Trade Analysis Content */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Proficiency Analysis */}
-            <div>
-              <h3 className="text-md font-medium text-gray-700 mb-2">Proficiency Distribution</h3>
-              <div className="h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={proficiencyAnalytics}
-                      dataKey="count"
-                      nameKey="name"
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={80}
-                      fill="#6366F1"
-                      label={(entry) => `${entry.name} (${entry.value})`}
-                    >
-                      {proficiencyAnalytics.map((_entry, index) => (
-                        <Cell
-                          key={`cell-${index}`}
-                          fill={`hsl(${index * (360 / proficiencyAnalytics.length)}, 70%, 60%)`}
-                        />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      formatter={(value: number, name: string) => [
-                        `${value} trades`,
-                        name
-                      ]}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-
-            {/* Growth Areas Analysis */}
-            <div>
-              <h3 className="text-md font-medium text-gray-700 mb-2">Growth Areas Distribution</h3>
-              <div className="h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={growthAreasAnalytics}
-                      dataKey="count"
-                      nameKey="name"
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={80}
-                      fill="#6366F1"
-                      label={(entry) => `${entry.name} (${entry.value})`}
-                    >
-                      {growthAreasAnalytics.map((_entry, index) => (
-                        <Cell
-                          key={`cell-${index}`}
-                          fill={`hsl(${index * (360 / growthAreasAnalytics.length)}, 70%, 60%)`}
-                        />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      formatter={(value: number, name: string) => [
-                        `${value} trades`,
-                        name
-                      ]}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-
-            {/* Exit Trigger Analysis */}
-            <div>
-              <h3 className="text-md font-medium text-gray-700 mb-2">Exit Trigger Distribution</h3>
-              <div className="h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={exitTriggerAnalytics}
-                      dataKey="count"
-                      nameKey="name"
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={80}
-                      fill="#6366F1"
-                      label={(entry) => `${entry.name} (${entry.value})`}
-                    >
-                      {exitTriggerAnalytics.map((_entry, index) => (
-                        <Cell
-                          key={`cell-${index}`}
-                          fill={`hsl(${index * (360 / exitTriggerAnalytics.length)}, 70%, 60%)`}
-                        />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      formatter={(value: number, name: string) => [
-                        `${value} trades`,
-                        name
-                      ]}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
               </div>
             </div>
           </div>
