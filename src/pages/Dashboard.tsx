@@ -17,7 +17,8 @@ import {
   ReferenceLine,
   Cell,
   PieChart,
-  Pie
+  Pie,
+  Legend
 } from 'recharts';
 import { format, parseISO, startOfMonth, endOfMonth, eachMonthOfInterval, subMonths, isWithinInterval } from 'date-fns';
 
@@ -443,40 +444,40 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-        <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+      <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8 py-4 sm:py-6 lg:py-8 space-y-4 sm:space-y-6 lg:space-y-8">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
             Dashboard
           </h1>
           <Link
             to="/trade/new"
-            className="inline-flex items-center px-6 py-3 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200"
+            className="w-full sm:w-auto inline-flex items-center justify-center px-4 sm:px-6 py-2 sm:py-3 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200"
           >
             + New Trade
           </Link>
         </div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-xl p-6 border border-white/20">
-            <h3 className="text-lg font-medium text-gray-900">Total Trades</h3>
-            <p className="mt-2 text-3xl font-bold text-indigo-600">{stats.totalTrades}</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
+          <div className="bg-white/70 backdrop-blur-lg rounded-xl sm:rounded-2xl shadow-lg sm:shadow-xl p-4 sm:p-6 border border-white/20">
+            <h3 className="text-base sm:text-lg font-medium text-gray-900">Total Trades</h3>
+            <p className="mt-2 text-2xl sm:text-3xl font-bold text-indigo-600">{stats.totalTrades}</p>
           </div>
 
-          <div className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-xl p-6 border border-white/20">
-            <h3 className="text-lg font-medium text-gray-900">Win Rate</h3>
-            <p className="mt-2 text-3xl font-bold text-indigo-600">
+          <div className="bg-white/70 backdrop-blur-lg rounded-xl sm:rounded-2xl shadow-lg sm:shadow-xl p-4 sm:p-6 border border-white/20">
+            <h3 className="text-base sm:text-lg font-medium text-gray-900">Win Rate</h3>
+            <p className="mt-2 text-2xl sm:text-3xl font-bold text-indigo-600">
               {stats.winRate.toFixed(1)}%
             </p>
           </div>
 
-          <div className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-xl p-6 border border-white/20">
-            <h3 className="text-lg font-medium text-gray-900">Total P/L</h3>
+          <div className="bg-white/70 backdrop-blur-lg rounded-xl sm:rounded-2xl shadow-lg sm:shadow-xl p-4 sm:p-6 border border-white/20">
+            <h3 className="text-base sm:text-lg font-medium text-gray-900">Total P/L</h3>
             <div className={`mt-2 ${stats.totalProfitLoss > 0 ? 'text-green-600' : 'text-red-600'}`}>
-              <p className="text-3xl font-bold">
+              <p className="text-2xl sm:text-3xl font-bold">
                 ${stats.totalProfitLoss.toFixed(2)}
               </p>
-              <p className="text-lg font-semibold">
+              <p className="text-base sm:text-lg font-semibold">
                 {userSettings?.total_capital
                   ? `${((stats.totalProfitLoss / userSettings.total_capital) * 100).toFixed(2)}%`
                   : '0.00%'}
@@ -484,9 +485,9 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <div className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-xl p-6 border border-white/20">
-            <h3 className="text-lg font-medium text-gray-900">Avg R:R Ratio</h3>
-            <p className="mt-2 text-3xl font-bold text-blue-600">
+          <div className="bg-white/70 backdrop-blur-lg rounded-xl sm:rounded-2xl shadow-lg sm:shadow-xl p-4 sm:p-6 border border-white/20">
+            <h3 className="text-base sm:text-lg font-medium text-gray-900">Avg R:R Ratio</h3>
+            <p className="mt-2 text-2xl sm:text-3xl font-bold text-blue-600">
               1:{stats.averageRR.toFixed(2)}
             </p>
           </div>
@@ -494,21 +495,23 @@ export default function Dashboard() {
 
         {/* Equity Curve */}
         {userSettings && (
-          <div className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-xl border border-white/20">
-            <div className="p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Account Equity</h2>
-              <EquityCurve 
-                trades={trades} 
-                initialCapital={userSettings.total_capital} 
-              />
+          <div className="bg-white/70 backdrop-blur-lg rounded-xl sm:rounded-2xl shadow-lg sm:shadow-xl border border-white/20">
+            <div className="p-4 sm:p-6">
+              <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">Account Equity</h2>
+              <div className="h-[300px] sm:h-[400px]">
+                <EquityCurve 
+                  trades={trades} 
+                  initialCapital={userSettings.total_capital} 
+                />
+              </div>
             </div>
           </div>
         )}
 
-        {/* Add Drawdown Analysis Chart */}
+        {/* Drawdown Analysis Chart */}
         {userSettings && (
-          <div className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-xl border border-white/20">
-            <div className="p-6">
+          <div className="bg-white/70 backdrop-blur-lg rounded-xl sm:rounded-2xl shadow-lg sm:shadow-xl border border-white/20">
+            <div className="p-4 sm:p-6">
               <DrawdownChart 
                 trades={trades} 
                 initialCapital={userSettings.total_capital} 
@@ -518,15 +521,15 @@ export default function Dashboard() {
         )}
 
         {/* Trade Analysis */}
-        <div className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-xl p-6 border border-white/20">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Trade Analysis</h2>
+        <div className="bg-white/70 backdrop-blur-lg rounded-xl sm:rounded-2xl shadow-lg sm:shadow-xl p-4 sm:p-6 border border-white/20">
+          <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">Trade Analysis</h2>
           
           {/* Portfolio Impact Section */}
-          <div className="mb-8">
-            <h3 className="text-md font-medium text-gray-700 mb-4">Portfolio Impact</h3>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="mb-6 sm:mb-8">
+            <h3 className="text-sm sm:text-md font-medium text-gray-700 mb-4">Portfolio Impact</h3>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
               {/* Portfolio Impact Chart */}
-              <div className="h-80">
+              <div className="h-[300px] sm:h-[400px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart
                     data={trades
@@ -558,34 +561,17 @@ export default function Dashboard() {
                         boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
                       }}
                       formatter={(value: number) => [`${value.toFixed(2)}%`, 'Portfolio Impact']}
-                      labelFormatter={(label) => {
-                        const trade = trades.find(t => t.symbol === label);
-                        if (!trade) return label;
-                        
-                        if (trade.exit_date) {
-                          return `${label} (${format(new Date(trade.exit_date), 'MMM d, yyyy')})`;
-                        } else if (trade.entry_date) {
-                          return `${label} (${format(new Date(trade.entry_date), 'MMM d, yyyy')})`;
-                        } else {
-                          return label;
-                        }
-                      }}
                     />
-                    <ReferenceLine y={0} stroke="#E5E7EB" />
-                    <Bar
-                      dataKey="portfolioImpact"
-                      name="Portfolio Impact"
-                      fill="#6366F1"
-                    >
+                    <Bar dataKey="portfolioImpact" name="Portfolio Impact" radius={[4, 4, 0, 0]}>
                       {trades
                         .filter(t => t.status === 'closed')
                         .sort((a, b) => new Date(b.exit_date!).getTime() - new Date(a.exit_date!).getTime())
                         .slice(0, 10)
                         .reverse()
-                        .map((entry, index) => (
+                        .map((trade, index) => (
                           <Cell
                             key={`cell-${index}`}
-                            fill={(entry.portfolioImpact ?? 0) >= 0 ? '#10B981' : '#EF4444'}
+                            fill={trade.portfolioImpact >= 0 ? '#10B981' : '#EF4444'}
                           />
                         ))}
                     </Bar>
@@ -593,15 +579,15 @@ export default function Dashboard() {
                 </ResponsiveContainer>
               </div>
 
-              {/* Portfolio Impact Stats */}
-              <div className="bg-white/70 backdrop-blur-lg rounded-xl shadow p-4 overflow-x-auto">
+              {/* Portfolio Impact Table */}
+              <div className="bg-white/70 backdrop-blur-lg rounded-xl shadow p-3 sm:p-4 overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead>
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Symbol</th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Impact</th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Symbol</th>
+                      <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                      <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Impact</th>
+                      <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
@@ -611,18 +597,18 @@ export default function Dashboard() {
                       .slice(0, 5)
                       .map((trade, index) => (
                         <tr key={trade.id} className={index % 2 === 0 ? 'bg-white/50' : 'bg-gray-50/50'}>
-                          <td className="px-4 py-3 text-sm font-medium text-gray-900">{trade.symbol}</td>
-                          <td className="px-4 py-3 text-sm text-right text-gray-900">
+                          <td className="px-3 py-2 text-sm font-medium text-gray-900">{trade.symbol}</td>
+                          <td className="px-3 py-2 text-sm text-right text-gray-900">
                             {trade.exit_date 
                               ? format(new Date(trade.exit_date), 'MMM d, yyyy') 
                               : trade.entry_date 
                                 ? format(new Date(trade.entry_date), 'MMM d, yyyy')
                                 : 'N/A'}
                           </td>
-                          <td className={`px-4 py-3 text-sm text-right ${(trade.portfolioImpact ?? 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                            {(trade.portfolioImpact ?? 0) >= 0 ? '+' : ''}{(trade.portfolioImpact ?? 0).toFixed(2)}%
+                          <td className={`px-3 py-2 text-sm text-right ${trade.portfolioImpact >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            {trade.portfolioImpact >= 0 ? '+' : ''}{trade.portfolioImpact.toFixed(2)}%
                           </td>
-                          <td className="px-4 py-3 text-sm text-right text-gray-900">
+                          <td className="px-3 py-2 text-sm text-right text-gray-900">
                             {trade.type.toUpperCase()}
                           </td>
                         </tr>
@@ -630,121 +616,121 @@ export default function Dashboard() {
                   </tbody>
                 </table>
               </div>
+
+              {/* Trade Analysis Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {/* Proficiency Analysis */}
+                <div>
+                  <h3 className="text-sm sm:text-md font-medium text-gray-700 mb-2">Proficiency Distribution</h3>
+                  <div className="h-[200px] sm:h-[300px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={proficiencyAnalytics}
+                          dataKey="count"
+                          nameKey="name"
+                          cx="50%"
+                          cy="50%"
+                          outerRadius={80}
+                          fill="#6366F1"
+                          label={({ name, value }) => `${name} (${value})`}
+                          labelLine={{ stroke: '#6366F1', strokeWidth: 1 }}
+                        >
+                          {proficiencyAnalytics.map((_entry, index) => (
+                            <Cell
+                              key={`cell-${index}`}
+                              fill={`hsl(${index * (360 / proficiencyAnalytics.length)}, 70%, 60%)`}
+                            />
+                          ))}
+                        </Pie>
+                        <Tooltip
+                          formatter={(value: number, name: string) => [
+                            `${value} trades`,
+                            name
+                          ]}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+
+                {/* Growth Areas Analysis */}
+                <div>
+                  <h3 className="text-sm sm:text-md font-medium text-gray-700 mb-2">Growth Areas</h3>
+                  <div className="h-[200px] sm:h-[300px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={growthAreasAnalytics}
+                          dataKey="count"
+                          nameKey="name"
+                          cx="50%"
+                          cy="50%"
+                          outerRadius={80}
+                          fill="#6366F1"
+                          label={({ name, value }) => `${name} (${value})`}
+                          labelLine={{ stroke: '#6366F1', strokeWidth: 1 }}
+                        >
+                          {growthAreasAnalytics.map((_entry, index) => (
+                            <Cell
+                              key={`cell-${index}`}
+                              fill={`hsl(${index * (360 / growthAreasAnalytics.length)}, 70%, 60%)`}
+                            />
+                          ))}
+                        </Pie>
+                        <Tooltip
+                          formatter={(value: number, name: string) => [
+                            `${value} trades`,
+                            name
+                          ]}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+
+                {/* Exit Trigger Analysis */}
+                <div>
+                  <h3 className="text-sm sm:text-md font-medium text-gray-700 mb-2">Exit Triggers</h3>
+                  <div className="h-[200px] sm:h-[300px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={exitTriggerAnalytics}
+                          dataKey="count"
+                          nameKey="name"
+                          cx="50%"
+                          cy="50%"
+                          outerRadius={80}
+                          fill="#6366F1"
+                          label={({ name, value }) => `${name} (${value})`}
+                          labelLine={{ stroke: '#6366F1', strokeWidth: 1 }}
+                        >
+                          {exitTriggerAnalytics.map((_entry, index) => (
+                            <Cell
+                              key={`cell-${index}`}
+                              fill={`hsl(${index * (360 / exitTriggerAnalytics.length)}, 70%, 60%)`}
+                            />
+                          ))}
+                        </Pie>
+                        <Tooltip
+                          formatter={(value: number, name: string) => [
+                            `${value} trades`,
+                            name
+                          ]}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* Analysis Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Proficiency Analysis */}
-            <div>
-              <h3 className="text-md font-medium text-gray-700 mb-2">Proficiency Distribution</h3>
-              <div className="h-96">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={proficiencyAnalytics}
-                      dataKey="count"
-                      nameKey="name"
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={100}
-                      fill="#6366F1"
-                      label={({ name, value }) => `${name} (${value})`}
-                      labelLine={{ stroke: '#6366F1', strokeWidth: 1 }}
-                    >
-                      {proficiencyAnalytics.map((_entry, index) => (
-                        <Cell
-                          key={`cell-${index}`}
-                          fill={`hsl(${index * (360 / proficiencyAnalytics.length)}, 70%, 60%)`}
-                        />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      formatter={(value: number, name: string) => [
-                        `${value} trades`,
-                        name
-                      ]}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-
-            {/* Growth Areas Analysis */}
-            <div>
-              <h3 className="text-md font-medium text-gray-700 mb-2">Growth Areas Distribution</h3>
-              <div className="h-96">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={growthAreasAnalytics}
-                      dataKey="count"
-                      nameKey="name"
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={100}
-                      fill="#6366F1"
-                      label={({ name, value }) => `${name} (${value})`}
-                      labelLine={{ stroke: '#6366F1', strokeWidth: 1 }}
-                    >
-                      {growthAreasAnalytics.map((_entry, index) => (
-                        <Cell
-                          key={`cell-${index}`}
-                          fill={`hsl(${index * (360 / growthAreasAnalytics.length)}, 70%, 60%)`}
-                        />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      formatter={(value: number, name: string) => [
-                        `${value} trades`,
-                        name
-                      ]}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-
-            {/* Exit Trigger Analysis */}
-            <div>
-              <h3 className="text-md font-medium text-gray-700 mb-2">Exit Trigger Distribution</h3>
-              <div className="h-96">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={exitTriggerAnalytics}
-                      dataKey="count"
-                      nameKey="name"
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={100}
-                      fill="#6366F1"
-                      label={({ name, value }) => `${name} (${value})`}
-                      labelLine={{ stroke: '#6366F1', strokeWidth: 1 }}
-                    >
-                      {exitTriggerAnalytics.map((_entry, index) => (
-                        <Cell
-                          key={`cell-${index}`}
-                          fill={`hsl(${index * (360 / exitTriggerAnalytics.length)}, 70%, 60%)`}
-                        />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      formatter={(value: number, name: string) => [
-                        `${value} trades`,
-                        name
-                      ]}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          </div>
-
-          {/* Analysis Insights */}
-          <div className="mt-6 bg-indigo-50 rounded-lg p-4">
+          {/* Trading Insights */}
+          <div className="mt-4 sm:mt-6 bg-indigo-50 rounded-lg p-3 sm:p-4">
             <h4 className="text-sm font-medium text-indigo-900 mb-2">Trading Insights</h4>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
               <div>
                 <h5 className="text-xs font-medium text-indigo-800 mb-1">Top Proficiencies</h5>
                 <ul className="text-xs text-indigo-700">
@@ -783,11 +769,11 @@ export default function Dashboard() {
         </div>
 
         {/* Monthly Performance Chart */}
-        <div className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-xl p-6 border border-white/20">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Monthly Performance</h2>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-white/70 backdrop-blur-lg rounded-xl sm:rounded-2xl shadow-lg sm:shadow-xl p-4 sm:p-6 border border-white/20">
+          <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">Monthly Performance</h2>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
             {/* Profit/Loss Bar Chart */}
-            <div className="h-80">
+            <div className="h-[300px] sm:h-[400px]">
               {monthlyData.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart
@@ -822,14 +808,9 @@ export default function Dashboard() {
                       formatter={(value: number) => [`${value.toFixed(2)}%`, 'Monthly Return']}
                     />
                     <ReferenceLine y={0} stroke="#E5E7EB" />
-                    <Bar
-                      dataKey="profitLossPercentage"
-                      name="Monthly Return"
-                      fill="#6366F1"
-                      radius={[4, 4, 0, 0]}
-                    >
+                    <Bar dataKey="profitLossPercentage" name="Monthly Return" radius={[4, 4, 0, 0]}>
                       {monthlyData.map((entry, index) => (
-                        <Cell 
+                        <Cell
                           key={`cell-${index}`}
                           fill={entry.profitLossPercentage >= 0 ? '#10B981' : '#EF4444'}
                         />
@@ -838,14 +819,14 @@ export default function Dashboard() {
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="flex items-center justify-center h-full">
-                  <p className="text-gray-500">No data available for the selected period</p>
+                <div className="h-full flex items-center justify-center text-gray-500">
+                  No data available
                 </div>
               )}
             </div>
 
-            {/* Win Rate and Trade Count Line Chart */}
-            <div className="h-80">
+            {/* Win Rate Line Chart */}
+            <div className="h-[300px] sm:h-[400px]">
               {monthlyData.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart
@@ -890,6 +871,7 @@ export default function Dashboard() {
                         name
                       ]}
                     />
+                    <Legend />
                     <Line
                       yAxisId="left"
                       type="monotone"
@@ -897,114 +879,110 @@ export default function Dashboard() {
                       name="Win Rate"
                       stroke="#6366F1"
                       strokeWidth={2}
-                      dot={{ fill: '#6366F1', strokeWidth: 2 }}
+                      dot={{ r: 4 }}
                     />
                     <Line
                       yAxisId="right"
                       type="monotone"
-                      dataKey="tradeCount"
-                      name="Trade Count"
+                      dataKey="totalTrades"
+                      name="Total Trades"
                       stroke="#10B981"
                       strokeWidth={2}
-                      dot={{ fill: '#10B981', strokeWidth: 2 }}
+                      dot={{ r: 4 }}
                     />
                   </LineChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="flex items-center justify-center h-full">
-                  <p className="text-gray-500">No data available for the selected period</p>
+                <div className="h-full flex items-center justify-center text-gray-500">
+                  No data available
                 </div>
               )}
             </div>
+          </div>
 
-            {/* Monthly Statistics */}
-            <div className="lg:col-span-2 grid grid-cols-1 gap-4">
-              {/* Best/Worst Month Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-4">
-                  <h3 className="text-sm font-medium text-gray-500">Best Month</h3>
-                  {monthlyData.length > 0 ? (
-                    <>
-                      <p className="mt-2 text-2xl font-semibold text-gray-900">
-                        {monthlyData.reduce((best, d) => Math.max(best, d.profitLossPercentage), -Infinity).toFixed(2)}%
-                      </p>
-                      <p className="mt-1 text-sm text-gray-500">
-                        {monthlyData.reduce((bestMonth, d) => 
-                          d.profitLossPercentage === monthlyData.reduce((max, m) => Math.max(max, m.profitLossPercentage), -Infinity) 
-                            ? d.month 
-                            : bestMonth, 
-                          ''
-                        )}
-                      </p>
-                    </>
-                  ) : (
-                    <p className="mt-2 text-2xl font-semibold text-gray-900">N/A</p>
-                  )}
-                </div>
-
-                <div className="bg-gradient-to-br from-red-50 to-rose-50 rounded-xl p-4">
-                  <h3 className="text-sm font-medium text-gray-500">Worst Month</h3>
-                  {monthlyData.length > 0 ? (
-                    <>
-                      <p className="mt-2 text-2xl font-semibold text-gray-900">
-                        {monthlyData.reduce((worst, d) => Math.min(worst, d.profitLossPercentage), Infinity).toFixed(2)}%
-                      </p>
-                      <p className="mt-1 text-sm text-gray-500">
-                        {monthlyData.reduce((worstMonth, d) => 
-                          d.profitLossPercentage === monthlyData.reduce((min, m) => Math.min(min, m.profitLossPercentage), Infinity) 
-                            ? d.month 
-                            : worstMonth, 
-                          ''
-                        )}
-                      </p>
-                    </>
-                  ) : (
-                    <p className="mt-2 text-2xl font-semibold text-gray-900">N/A</p>
-                  )}
-                </div>
+          {/* Monthly Stats Grid */}
+          <div className="mt-4 sm:mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Best/Worst Month Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-3 sm:p-4">
+                <h3 className="text-sm font-medium text-gray-500">Best Month</h3>
+                {monthlyData.length > 0 ? (
+                  <>
+                    <p className="mt-2 text-xl sm:text-2xl font-semibold text-gray-900">
+                      {monthlyData.reduce((best, d) => Math.max(best, d.profitLossPercentage), -Infinity).toFixed(2)}%
+                    </p>
+                    <p className="mt-1 text-xs sm:text-sm text-gray-500">
+                      {monthlyData.reduce((bestMonth, d) => 
+                        d.profitLossPercentage === monthlyData.reduce((max, m) => Math.max(max, m.profitLossPercentage), -Infinity) 
+                          ? d.month 
+                          : bestMonth, 
+                        ''
+                      )}
+                    </p>
+                  </>
+                ) : (
+                  <p className="mt-2 text-xl sm:text-2xl font-semibold text-gray-900">N/A</p>
+                )}
               </div>
 
-              {/* Monthly Statistics Table */}
-              <div className="bg-white/70 backdrop-blur-lg rounded-xl shadow p-4 overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead>
-                    <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Month</th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Win %</th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Avg Gain</th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Avg Loss</th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Avg Pos Size</th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Trades</th>
+              <div className="bg-gradient-to-br from-red-50 to-rose-50 rounded-xl p-3 sm:p-4">
+                <h3 className="text-sm font-medium text-gray-500">Worst Month</h3>
+                {monthlyData.length > 0 ? (
+                  <>
+                    <p className="mt-2 text-xl sm:text-2xl font-semibold text-gray-900">
+                      {monthlyData.reduce((worst, d) => Math.min(worst, d.profitLossPercentage), Infinity).toFixed(2)}%
+                    </p>
+                    <p className="mt-1 text-xs sm:text-sm text-gray-500">
+                      {monthlyData.reduce((worstMonth, d) => 
+                        d.profitLossPercentage === monthlyData.reduce((min, m) => Math.min(min, m.profitLossPercentage), Infinity) 
+                          ? d.month 
+                          : worstMonth, 
+                        ''
+                      )}
+                    </p>
+                  </>
+                ) : (
+                  <p className="mt-2 text-xl sm:text-2xl font-semibold text-gray-900">N/A</p>
+                )}
+              </div>
+            </div>
+
+            {/* Monthly Stats Table */}
+            <div className="bg-white/70 backdrop-blur-lg rounded-xl shadow p-3 sm:p-4 overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead>
+                  <tr>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Month</th>
+                    <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Win %</th>
+                    <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Avg Gain</th>
+                    <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Avg Loss</th>
+                    <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Avg Pos Size</th>
+                    <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Trades</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {monthlyData.map((month, index) => (
+                    <tr key={index}>
+                      <td className="px-3 py-2 text-sm text-gray-900">{month.month}</td>
+                      <td className="px-3 py-2 text-sm text-right text-gray-900">{month.winRate.toFixed(1)}%</td>
+                      <td className="px-3 py-2 text-sm text-right text-green-600">${month.averageGain.toFixed(2)}</td>
+                      <td className="px-3 py-2 text-sm text-right text-red-600">${month.averageLoss.toFixed(2)}</td>
+                      <td className="px-3 py-2 text-sm text-right text-gray-900">${month.averagePositionSize.toFixed(2)}</td>
+                      <td className="px-3 py-2 text-sm text-right text-gray-900">{month.tradeCount}</td>
                     </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200">
-                    {monthlyData.map((data, index) => (
-                      <tr key={data.month} className={index % 2 === 0 ? 'bg-white/50' : 'bg-gray-50/50'}>
-                        <td className="px-4 py-3 text-sm font-medium text-gray-900">{data.month}</td>
-                        <td className="px-4 py-3 text-sm text-right text-gray-900">{data.winRate.toFixed(1)}%</td>
-                        <td className="px-4 py-3 text-sm text-right text-green-600">
-                          {data.averageGain > 0 ? `+${data.averageGain.toFixed(2)}%` : '0.00%'}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-right text-red-600">
-                          {data.averageLoss < 0 ? `${data.averageLoss.toFixed(2)}%` : '0.00%'}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-right text-gray-900">{data.averagePositionSize.toFixed(2)}%</td>
-                        <td className="px-4 py-3 text-sm text-right text-gray-900">{data.tradeCount}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
 
         {/* Strategy Performance */}
-        <div className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-xl p-6 border border-white/20">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Strategy Performance</h2>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-white/70 backdrop-blur-lg rounded-xl sm:rounded-2xl shadow-lg sm:shadow-xl p-4 sm:p-6 border border-white/20">
+          <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">Strategy Performance</h2>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
             {/* Strategy Bar Chart */}
-            <div className="h-80">
+            <div className="h-[300px] sm:h-[400px]">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
                   data={strategyPerformance}
@@ -1039,7 +1017,7 @@ export default function Dashboard() {
             </div>
 
             {/* Strategy Win Rate Pie Chart */}
-            <div className="h-80">
+            <div className="h-[300px] sm:h-[400px]">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
@@ -1072,13 +1050,13 @@ export default function Dashboard() {
         </div>
 
         {/* Best and Worst Trades */}
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-          <div className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-xl p-6 border border-white/20">
-            <h3 className="text-lg font-medium text-gray-900">Best Trade</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="bg-white/70 backdrop-blur-lg rounded-xl sm:rounded-2xl shadow-lg sm:shadow-xl p-4 sm:p-6 border border-white/20">
+            <h3 className="text-base sm:text-lg font-medium text-gray-900">Best Trade</h3>
             {stats.bestTrade ? (
               <div className="mt-2 space-y-2">
                 <p className="text-sm text-gray-600">{stats.bestTrade.symbol}</p>
-                <p className="text-2xl font-bold text-green-600">
+                <p className="text-xl sm:text-2xl font-bold text-green-600">
                   {stats.bestTrade.exit_price && stats.bestTrade.entry_price
                     ? `+${(((stats.bestTrade.exit_price - stats.bestTrade.entry_price) / stats.bestTrade.entry_price) * 100).toFixed(2)}%`
                     : 'N/A'}
@@ -1089,12 +1067,12 @@ export default function Dashboard() {
             )}
           </div>
 
-          <div className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-xl p-6 border border-white/20">
-            <h3 className="text-lg font-medium text-gray-900">Worst Trade</h3>
+          <div className="bg-white/70 backdrop-blur-lg rounded-xl sm:rounded-2xl shadow-lg sm:shadow-xl p-4 sm:p-6 border border-white/20">
+            <h3 className="text-base sm:text-lg font-medium text-gray-900">Worst Trade</h3>
             {stats.worstTrade ? (
               <div className="mt-2 space-y-2">
                 <p className="text-sm text-gray-600">{stats.worstTrade.symbol}</p>
-                <p className="text-2xl font-bold text-red-600">
+                <p className="text-xl sm:text-2xl font-bold text-red-600">
                   {stats.worstTrade.exit_price && stats.worstTrade.entry_price
                     ? `${(((stats.worstTrade.exit_price - stats.worstTrade.entry_price) / stats.worstTrade.entry_price) * 100).toFixed(2)}%`
                     : 'N/A'}
