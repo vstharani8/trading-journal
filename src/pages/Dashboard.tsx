@@ -268,6 +268,14 @@ export default function Dashboard() {
       setLoading(true);
       const allTrades = await db.getAllTrades();
       
+      // Get latest user settings
+      const { data: { session } } = await db.supabase.auth.getSession();
+      let settings = null;
+      if (session?.user) {
+        settings = await db.getUserSettings(session.user.id);
+        setUserSettings(settings);
+      }
+      
       // Calculate portfolio impact for each trade
       const tradesWithImpact = allTrades.map(trade => {
         let portfolioImpact = 0;
@@ -292,7 +300,7 @@ export default function Dashboard() {
             totalPL -= (trade.fees || 0);
           }
           
-          const initialCapital = userSettings?.total_capital || 10000;
+          const initialCapital = settings?.total_capital || 500000; // Use 500000 as default if not set
           portfolioImpact = (totalPL / initialCapital) * 100;
         }
         
