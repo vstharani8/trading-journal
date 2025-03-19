@@ -520,209 +520,6 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Trade Analysis */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
-          {/* Proficiency Analysis */}
-          <div className="bg-white/70 backdrop-blur-lg rounded-xl sm:rounded-2xl shadow-lg sm:shadow-xl p-4 sm:p-6 border border-white/20">
-            <h3 className="text-sm sm:text-md font-medium text-gray-700 mb-4">Proficiency Distribution</h3>
-            <div className="h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={proficiencyAnalytics}
-                    dataKey="count"
-                    nameKey="name"
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={80}
-                    fill="#6366F1"
-                    label={({ name, value }) => `${name} (${value})`}
-                    labelLine={{ stroke: '#6366F1', strokeWidth: 1 }}
-                  >
-                    {proficiencyAnalytics.map((_entry, index) => (
-                      <Cell
-                        key={`cell-${index}`}
-                        fill={`hsl(${index * (360 / proficiencyAnalytics.length)}, 70%, 60%)`}
-                      />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    formatter={(value: number, name: string) => [
-                      `${value} trades`,
-                      name
-                    ]}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-
-          {/* Growth Areas Analysis */}
-          <div className="bg-white/70 backdrop-blur-lg rounded-xl sm:rounded-2xl shadow-lg sm:shadow-xl p-4 sm:p-6 border border-white/20">
-            <h3 className="text-sm sm:text-md font-medium text-gray-700 mb-4">Growth Areas</h3>
-            <div className="h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={growthAreasAnalytics}
-                    dataKey="count"
-                    nameKey="name"
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={80}
-                    fill="#6366F1"
-                    label={({ name, value }) => `${name} (${value})`}
-                    labelLine={{ stroke: '#6366F1', strokeWidth: 1 }}
-                  >
-                    {growthAreasAnalytics.map((_entry, index) => (
-                      <Cell
-                        key={`cell-${index}`}
-                        fill={`hsl(${index * (360 / growthAreasAnalytics.length)}, 70%, 60%)`}
-                      />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    formatter={(value: number, name: string) => [
-                      `${value} trades`,
-                      name
-                    ]}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-
-          {/* Exit Trigger Analysis */}
-          <div className="bg-white/70 backdrop-blur-lg rounded-xl sm:rounded-2xl shadow-lg sm:shadow-xl p-4 sm:p-6 border border-white/20">
-            <h3 className="text-sm sm:text-md font-medium text-gray-700 mb-4">Exit Triggers</h3>
-            <div className="h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={exitTriggerAnalytics}
-                    dataKey="count"
-                    nameKey="name"
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={80}
-                    fill="#6366F1"
-                    label={({ name, value }) => `${name} (${value})`}
-                    labelLine={{ stroke: '#6366F1', strokeWidth: 1 }}
-                  >
-                    {exitTriggerAnalytics.map((_entry, index) => (
-                      <Cell
-                        key={`cell-${index}`}
-                        fill={`hsl(${index * (360 / exitTriggerAnalytics.length)}, 70%, 60%)`}
-                      />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    formatter={(value: number, name: string) => [
-                      `${value} trades`,
-                      name
-                    ]}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-        </div>
-
-        {/* Portfolio Impact Section */}
-        <div className="bg-white/70 backdrop-blur-lg rounded-xl sm:rounded-2xl shadow-lg sm:shadow-xl p-4 sm:p-6 border border-white/20">
-          <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">Portfolio Impact</h2>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-            {/* Portfolio Impact Chart */}
-            <div className="h-[400px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  data={trades
-                    .filter(t => t.status === 'closed')
-                    .sort((a, b) => new Date(b.exit_date!).getTime() - new Date(a.exit_date!).getTime())
-                    .slice(0, 10)
-                    .reverse()
-                  }
-                  margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                  <XAxis
-                    dataKey="symbol"
-                    tick={{ fontSize: 12 }}
-                    tickLine={false}
-                    axisLine={false}
-                  />
-                  <YAxis
-                    tickFormatter={(value) => `${value}%`}
-                    tick={{ fontSize: 12 }}
-                    tickLine={false}
-                    axisLine={false}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: 'rgba(255, 255, 255, 0.8)',
-                      borderRadius: '0.5rem',
-                      border: 'none',
-                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-                    }}
-                    formatter={(value: number) => [`${value.toFixed(2)}%`, 'Portfolio Impact']}
-                  />
-                  <Bar dataKey="portfolioImpact" name="Portfolio Impact" radius={[4, 4, 0, 0]}>
-                    {trades
-                      .filter(t => t.status === 'closed')
-                      .sort((a, b) => new Date(b.exit_date!).getTime() - new Date(a.exit_date!).getTime())
-                      .slice(0, 10)
-                      .reverse()
-                      .map((trade, index) => (
-                        <Cell
-                          key={`cell-${index}`}
-                          fill={trade.portfolioImpact >= 0 ? '#10B981' : '#EF4444'}
-                        />
-                      ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-
-            {/* Portfolio Impact Table */}
-            <div className="bg-white/70 backdrop-blur-lg rounded-xl shadow p-4 overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead>
-                  <tr>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Symbol</th>
-                    <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                    <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Impact</th>
-                    <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {trades
-                    .filter(t => t.status === 'closed')
-                    .sort((a, b) => new Date(b.exit_date || b.entry_date).getTime() - new Date(a.exit_date || a.entry_date).getTime())
-                    .slice(0, 5)
-                    .map((trade, index) => (
-                      <tr key={trade.id} className={index % 2 === 0 ? 'bg-white/50' : 'bg-gray-50/50'}>
-                        <td className="px-3 py-2 text-sm font-medium text-gray-900">{trade.symbol}</td>
-                        <td className="px-3 py-2 text-sm text-right text-gray-900">
-                          {trade.exit_date 
-                            ? format(new Date(trade.exit_date), 'MMM d, yyyy') 
-                            : trade.entry_date 
-                              ? format(new Date(trade.entry_date), 'MMM d, yyyy')
-                              : 'N/A'}
-                        </td>
-                        <td className={`px-3 py-2 text-sm text-right ${trade.portfolioImpact >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                          {trade.portfolioImpact >= 0 ? '+' : ''}{trade.portfolioImpact.toFixed(2)}%
-                        </td>
-                        <td className="px-3 py-2 text-sm text-right text-gray-900">
-                          {trade.type.toUpperCase()}
-                        </td>
-                      </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
         {/* Monthly Performance Chart */}
         <div className="bg-white/70 backdrop-blur-lg rounded-xl sm:rounded-2xl shadow-lg sm:shadow-xl p-4 sm:p-6 border border-white/20">
           <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">Monthly Performance</h2>
@@ -1002,6 +799,209 @@ export default function Dashboard() {
                   />
                 </PieChart>
               </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
+
+        {/* Trade Analysis */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+          {/* Proficiency Analysis */}
+          <div className="bg-white/70 backdrop-blur-lg rounded-xl sm:rounded-2xl shadow-lg sm:shadow-xl p-4 sm:p-6 border border-white/20">
+            <h3 className="text-sm sm:text-md font-medium text-gray-700 mb-4">Proficiency Distribution</h3>
+            <div className="h-[300px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={proficiencyAnalytics}
+                    dataKey="count"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={80}
+                    fill="#6366F1"
+                    label={({ name, value }) => `${name} (${value})`}
+                    labelLine={{ stroke: '#6366F1', strokeWidth: 1 }}
+                  >
+                    {proficiencyAnalytics.map((_entry, index) => (
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={`hsl(${index * (360 / proficiencyAnalytics.length)}, 70%, 60%)`}
+                      />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    formatter={(value: number, name: string) => [
+                      `${value} trades`,
+                      name
+                    ]}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Growth Areas Analysis */}
+          <div className="bg-white/70 backdrop-blur-lg rounded-xl sm:rounded-2xl shadow-lg sm:shadow-xl p-4 sm:p-6 border border-white/20">
+            <h3 className="text-sm sm:text-md font-medium text-gray-700 mb-4">Growth Areas</h3>
+            <div className="h-[300px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={growthAreasAnalytics}
+                    dataKey="count"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={80}
+                    fill="#6366F1"
+                    label={({ name, value }) => `${name} (${value})`}
+                    labelLine={{ stroke: '#6366F1', strokeWidth: 1 }}
+                  >
+                    {growthAreasAnalytics.map((_entry, index) => (
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={`hsl(${index * (360 / growthAreasAnalytics.length)}, 70%, 60%)`}
+                      />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    formatter={(value: number, name: string) => [
+                      `${value} trades`,
+                      name
+                    ]}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Exit Trigger Analysis */}
+          <div className="bg-white/70 backdrop-blur-lg rounded-xl sm:rounded-2xl shadow-lg sm:shadow-xl p-4 sm:p-6 border border-white/20">
+            <h3 className="text-sm sm:text-md font-medium text-gray-700 mb-4">Exit Triggers</h3>
+            <div className="h-[300px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={exitTriggerAnalytics}
+                    dataKey="count"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={80}
+                    fill="#6366F1"
+                    label={({ name, value }) => `${name} (${value})`}
+                    labelLine={{ stroke: '#6366F1', strokeWidth: 1 }}
+                  >
+                    {exitTriggerAnalytics.map((_entry, index) => (
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={`hsl(${index * (360 / exitTriggerAnalytics.length)}, 70%, 60%)`}
+                      />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    formatter={(value: number, name: string) => [
+                      `${value} trades`,
+                      name
+                    ]}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
+
+        {/* Portfolio Impact Section */}
+        <div className="bg-white/70 backdrop-blur-lg rounded-xl sm:rounded-2xl shadow-lg sm:shadow-xl p-4 sm:p-6 border border-white/20">
+          <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">Portfolio Impact</h2>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+            {/* Portfolio Impact Chart */}
+            <div className="h-[400px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={trades
+                    .filter(t => t.status === 'closed')
+                    .sort((a, b) => new Date(b.exit_date!).getTime() - new Date(a.exit_date!).getTime())
+                    .slice(0, 10)
+                    .reverse()
+                  }
+                  margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                  <XAxis
+                    dataKey="symbol"
+                    tick={{ fontSize: 12 }}
+                    tickLine={false}
+                    axisLine={false}
+                  />
+                  <YAxis
+                    tickFormatter={(value) => `${value}%`}
+                    tick={{ fontSize: 12 }}
+                    tickLine={false}
+                    axisLine={false}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                      borderRadius: '0.5rem',
+                      border: 'none',
+                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                    }}
+                    formatter={(value: number) => [`${value.toFixed(2)}%`, 'Portfolio Impact']}
+                  />
+                  <Bar dataKey="portfolioImpact" name="Portfolio Impact" radius={[4, 4, 0, 0]}>
+                    {trades
+                      .filter(t => t.status === 'closed')
+                      .sort((a, b) => new Date(b.exit_date!).getTime() - new Date(a.exit_date!).getTime())
+                      .slice(0, 10)
+                      .reverse()
+                      .map((trade, index) => (
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={trade.portfolioImpact >= 0 ? '#10B981' : '#EF4444'}
+                        />
+                      ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Portfolio Impact Table */}
+            <div className="bg-white/70 backdrop-blur-lg rounded-xl shadow p-4 overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead>
+                  <tr>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Symbol</th>
+                    <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                    <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Impact</th>
+                    <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {trades
+                    .filter(t => t.status === 'closed')
+                    .sort((a, b) => new Date(b.exit_date || b.entry_date).getTime() - new Date(a.exit_date || a.entry_date).getTime())
+                    .slice(0, 5)
+                    .map((trade, index) => (
+                      <tr key={trade.id} className={index % 2 === 0 ? 'bg-white/50' : 'bg-gray-50/50'}>
+                        <td className="px-3 py-2 text-sm font-medium text-gray-900">{trade.symbol}</td>
+                        <td className="px-3 py-2 text-sm text-right text-gray-900">
+                          {trade.exit_date 
+                            ? format(new Date(trade.exit_date), 'MMM d, yyyy') 
+                            : trade.entry_date 
+                              ? format(new Date(trade.entry_date), 'MMM d, yyyy')
+                              : 'N/A'}
+                        </td>
+                        <td className={`px-3 py-2 text-sm text-right ${trade.portfolioImpact >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          {trade.portfolioImpact >= 0 ? '+' : ''}{trade.portfolioImpact.toFixed(2)}%
+                        </td>
+                        <td className="px-3 py-2 text-sm text-right text-gray-900">
+                          {trade.type.toUpperCase()}
+                        </td>
+                      </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
