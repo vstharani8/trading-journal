@@ -1,7 +1,19 @@
 import { useState, useEffect } from 'react'
 import { db } from '../services/supabase'
-import { Trade } from '../services/supabase'
+import { Trade, UserSettings } from '../services/supabase'
 import OpenAI from 'openai'
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell
+} from 'recharts'
 
 const openai = new OpenAI({
   apiKey: import.meta.env.VITE_OPENAI_API_KEY,
@@ -17,12 +29,80 @@ interface AggregatedAnalytics {
   keyLessons: string[]
   improvementAreas: string[]
   lastAnalyzedAt?: string
+  // New metrics from dashboard
+  monthlyPerformance: {
+    month: string
+    profitLoss: number
+    winRate: number
+    tradeCount: number
+  }[]
+  strategyAnalytics: {
+    name: string
+    totalTrades: number
+    winRate: number
+    profitLoss: number
+    profitFactor: number
+  }[]
+  proficiencyMetrics: {
+    name: string
+    count: number
+    winRate: number
+    profitLoss: number
+  }[]
+  overallStats: {
+    totalTrades: number
+    winRate: number
+    totalProfitLoss: number
+    averageRR: number
+  }
+  // New AI analysis fields
+  patternAnalysis: {
+    marketConditions: {
+      condition: 'bullish' | 'bearish' | 'neutral'
+      tradeCount: number
+      winRate: number
+      avgReturn: number
+    }[]
+    emotionalStates: {
+      state: 'confident' | 'uncertain' | 'neutral'
+      tradeCount: number
+      winRate: number
+      avgReturn: number
+    }[]
+    timeAnalysis: {
+      bestTradingHours: string[]
+      bestTradingDays: string[]
+      worstTradingHours: string[]
+      worstTradingDays: string[]
+    }
+  }
+  riskAnalysis: {
+    suggestedStopLossRange: {
+      min: number
+      max: number
+    }
+    riskManagementScore: number
+    consistencyScore: number
+  }
+  behavioralPatterns: {
+    pattern: string
+    occurrence: number
+    impact: number
+    recommendation: string
+  }[]
+  setupAnalysis: {
+    setup: string
+    successRate: number
+    avgReturn: number
+    bestConditions: string[]
+  }[]
 }
 
 function Learning() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [trades, setTrades] = useState<Trade[]>([])
+  const [userSettings, setUserSettings] = useState<UserSettings | null>(null)
   const [analytics, setAnalytics] = useState<AggregatedAnalytics>({
     commonMistakes: {},
     successfulStrategies: {},
@@ -31,13 +111,55 @@ function Learning() {
     overallPerformance: [],
     keyLessons: [],
     improvementAreas: [],
-    lastAnalyzedAt: undefined
+    lastAnalyzedAt: undefined,
+    monthlyPerformance: [],
+    strategyAnalytics: [],
+    proficiencyMetrics: [],
+    overallStats: {
+      totalTrades: 0,
+      winRate: 0,
+      totalProfitLoss: 0,
+      averageRR: 0
+    },
+    patternAnalysis: {
+      marketConditions: [],
+      emotionalStates: [],
+      timeAnalysis: {
+        bestTradingHours: [],
+        bestTradingDays: [],
+        worstTradingHours: [],
+        worstTradingDays: []
+      }
+    },
+    riskAnalysis: {
+      suggestedStopLossRange: {
+        min: 0,
+        max: 0
+      },
+      riskManagementScore: 0,
+      consistencyScore: 0
+    },
+    behavioralPatterns: [],
+    setupAnalysis: []
   })
   const [analyzing, setAnalyzing] = useState(false)
 
   useEffect(() => {
+    loadUserSettings()
     loadTrades()
   }, [])
+
+  const loadUserSettings = async () => {
+    try {
+      const { data: { session } } = await db.supabase.auth.getSession()
+      if (session?.user) {
+        const settings = await db.getUserSettings(session.user.id)
+        setUserSettings(settings)
+      }
+    } catch (err) {
+      console.error('Error loading user settings:', err)
+    }
+  }
 
   const saveAnalysis = async (tradeIds: string[], refinedAnalytics: AggregatedAnalytics) => {
     try {
@@ -97,8 +219,314 @@ function Learning() {
       overallPerformance: [],
       keyLessons: [],
       improvementAreas: [],
-      lastAnalyzedAt: undefined
+      lastAnalyzedAt: undefined,
+      monthlyPerformance: [],
+      strategyAnalytics: [],
+      proficiencyMetrics: [],
+      overallStats: {
+        totalTrades: 0,
+        winRate: 0,
+        totalProfitLoss: 0,
+        averageRR: 0
+      },
+      patternAnalysis: {
+        marketConditions: [],
+        emotionalStates: [],
+        timeAnalysis: {
+          bestTradingHours: [],
+          bestTradingDays: [],
+          worstTradingHours: [],
+          worstTradingDays: []
+        }
+      },
+      riskAnalysis: {
+        suggestedStopLossRange: {
+          min: 0,
+          max: 0
+        },
+        riskManagementScore: 0,
+        consistencyScore: 0
+      },
+      behavioralPatterns: [],
+      setupAnalysis: []
     }
+
+    // Calculate overall stats
+    const closedTrades = trades.filter(trade => trade.status === 'closed')
+    const profitableTrades = closedTrades.filter(trade => {
+      const exitPrice = trade.exit_price || (trade.exits?.[0]?.exit_price ?? 0)
+      const pl = trade.type === 'long'
+        ? (exitPrice - (trade.entry_price || 0)) * trade.quantity
+        : ((trade.entry_price || 0) - exitPrice) * trade.quantity
+      return pl > 0
+    })
+
+    aggregated.overallStats = {
+      totalTrades: trades.length,
+      winRate: closedTrades.length ? (profitableTrades.length / closedTrades.length) * 100 : 0,
+      totalProfitLoss: closedTrades.reduce((sum, trade) => {
+        const exitPrice = trade.exit_price || (trade.exits?.[0]?.exit_price ?? 0)
+        const pl = trade.type === 'long'
+          ? (exitPrice - (trade.entry_price || 0)) * trade.quantity
+          : ((trade.entry_price || 0) - exitPrice) * trade.quantity
+        return sum + pl
+      }, 0),
+      averageRR: closedTrades.reduce((sum, trade) => {
+        if (!trade.entry_price || !trade.stop_loss) return sum
+        const exitPrice = trade.exit_price || (trade.exits?.[0]?.exit_price ?? 0)
+        const reward = trade.type === 'long'
+          ? exitPrice - (trade.entry_price || 0)
+          : (trade.entry_price || 0) - exitPrice
+        const risk = trade.type === 'long'
+          ? (trade.entry_price || 0) - trade.stop_loss
+          : trade.stop_loss - (trade.entry_price || 0)
+        return risk > 0 ? sum + (reward / risk) : sum
+      }, 0) / (closedTrades.length || 1)
+    }
+
+    // Calculate strategy analytics
+    const strategyMap = new Map<string, any>()
+    closedTrades.forEach(trade => {
+      if (!trade.strategy) return
+      const strategy = strategyMap.get(trade.strategy) || {
+        name: trade.strategy,
+        totalTrades: 0,
+        wins: 0,
+        profitLoss: 0
+      }
+      const exitPrice = trade.exit_price || (trade.exits?.[0]?.exit_price ?? 0)
+      const pl = trade.type === 'long'
+        ? (exitPrice - (trade.entry_price || 0)) * trade.quantity
+        : ((trade.entry_price || 0) - exitPrice) * trade.quantity
+      
+      strategyMap.set(trade.strategy, {
+        ...strategy,
+        totalTrades: strategy.totalTrades + 1,
+        wins: strategy.wins + (pl > 0 ? 1 : 0),
+        profitLoss: strategy.profitLoss + pl
+      })
+    })
+
+    aggregated.strategyAnalytics = Array.from(strategyMap.values())
+      .map(strategy => ({
+        ...strategy,
+        winRate: (strategy.wins / strategy.totalTrades) * 100,
+        profitFactor: strategy.profitLoss > 0 ? strategy.profitLoss : 0
+      }))
+      .sort((a, b) => b.profitLoss - a.profitLoss)
+
+    // Calculate proficiency metrics
+    const proficiencyMap = new Map<string, any>()
+    closedTrades.forEach(trade => {
+      if (!trade.proficiency) return
+      const proficiency = proficiencyMap.get(trade.proficiency) || {
+        name: trade.proficiency,
+        count: 0,
+        wins: 0,
+        profitLoss: 0
+      }
+      const exitPrice = trade.exit_price || (trade.exits?.[0]?.exit_price ?? 0)
+      const pl = trade.type === 'long'
+        ? (exitPrice - (trade.entry_price || 0)) * trade.quantity
+        : ((trade.entry_price || 0) - exitPrice) * trade.quantity
+      
+      proficiencyMap.set(trade.proficiency, {
+        ...proficiency,
+        count: proficiency.count + 1,
+        wins: proficiency.wins + (pl > 0 ? 1 : 0),
+        profitLoss: proficiency.profitLoss + pl
+      })
+    })
+
+    aggregated.proficiencyMetrics = Array.from(proficiencyMap.values())
+      .map(metric => ({
+        ...metric,
+        winRate: (metric.wins / metric.count) * 100
+      }))
+      .sort((a, b) => b.count - a.count)
+
+    // Calculate pattern analysis
+    const marketConditionsMap = new Map<string, any>()
+    const emotionalStatesMap = new Map<string, any>()
+    const tradingHours = new Map<number, any>()
+    const tradingDays = new Map<string, any>()
+
+    closedTrades.forEach(trade => {
+      // Market conditions analysis
+      if (trade.market_conditions) {
+        const condition = marketConditionsMap.get(trade.market_conditions) || {
+          condition: trade.market_conditions,
+          tradeCount: 0,
+          wins: 0,
+          totalReturn: 0
+        }
+        const pl = calculateTradeProfit(trade)
+        marketConditionsMap.set(trade.market_conditions, {
+          ...condition,
+          tradeCount: condition.tradeCount + 1,
+          wins: condition.wins + (pl > 0 ? 1 : 0),
+          totalReturn: condition.totalReturn + pl
+        })
+      }
+
+      // Emotional state analysis
+      if (trade.emotional_state) {
+        const state = emotionalStatesMap.get(trade.emotional_state) || {
+          state: trade.emotional_state,
+          tradeCount: 0,
+          wins: 0,
+          totalReturn: 0
+        }
+        const pl = calculateTradeProfit(trade)
+        emotionalStatesMap.set(trade.emotional_state, {
+          ...state,
+          tradeCount: state.tradeCount + 1,
+          wins: state.wins + (pl > 0 ? 1 : 0),
+          totalReturn: state.totalReturn + pl
+        })
+      }
+
+      // Time analysis
+      const entryDate = new Date(trade.entry_date)
+      const hour = entryDate.getHours()
+      const day = entryDate.toLocaleDateString('en-US', { weekday: 'long' })
+      
+      const hourStat = tradingHours.get(hour) || {
+        hour,
+        tradeCount: 0,
+        wins: 0,
+        totalReturn: 0
+      }
+      const dayStat = tradingDays.get(day) || {
+        day,
+        tradeCount: 0,
+        wins: 0,
+        totalReturn: 0
+      }
+
+      const pl = calculateTradeProfit(trade)
+      tradingHours.set(hour, {
+        ...hourStat,
+        tradeCount: hourStat.tradeCount + 1,
+        wins: hourStat.wins + (pl > 0 ? 1 : 0),
+        totalReturn: hourStat.totalReturn + pl
+      })
+
+      tradingDays.set(day, {
+        ...dayStat,
+        tradeCount: dayStat.tradeCount + 1,
+        wins: dayStat.wins + (pl > 0 ? 1 : 0),
+        totalReturn: dayStat.totalReturn + pl
+      })
+    })
+
+    // Process market conditions
+    const marketConditions = Array.from(marketConditionsMap.values())
+      .map(condition => ({
+        condition: condition.condition,
+        tradeCount: condition.tradeCount,
+        winRate: (condition.wins / condition.tradeCount) * 100,
+        avgReturn: condition.totalReturn / condition.tradeCount
+      }))
+      .sort((a, b) => b.winRate - a.winRate)
+
+    // Process emotional states
+    const emotionalStates = Array.from(emotionalStatesMap.values())
+      .map(state => ({
+        state: state.state,
+        tradeCount: state.tradeCount,
+        winRate: (state.wins / state.tradeCount) * 100,
+        avgReturn: state.totalReturn / state.tradeCount
+      }))
+      .sort((a, b) => b.winRate - a.winRate)
+
+    // Process time analysis
+    const hourStats = Array.from(tradingHours.values())
+      .map(stat => ({
+        hour: stat.hour,
+        winRate: (stat.wins / stat.tradeCount) * 100,
+        avgReturn: stat.totalReturn / stat.tradeCount
+      }))
+      .sort((a, b) => b.winRate - a.winRate)
+
+    const dayStats = Array.from(tradingDays.values())
+      .map(stat => ({
+        day: stat.day,
+        winRate: (stat.wins / stat.tradeCount) * 100,
+        avgReturn: stat.totalReturn / stat.tradeCount
+      }))
+      .sort((a, b) => b.winRate - a.winRate)
+
+    aggregated.patternAnalysis = {
+      marketConditions,
+      emotionalStates,
+      timeAnalysis: {
+        bestTradingHours: hourStats.slice(0, 3).map(h => `${h.hour}:00 (${h.winRate.toFixed(1)}% WR)`),
+        worstTradingHours: hourStats.slice(-3).map(h => `${h.hour}:00 (${h.winRate.toFixed(1)}% WR)`),
+        bestTradingDays: dayStats.slice(0, 3).map(d => `${d.day} (${d.winRate.toFixed(1)}% WR)`),
+        worstTradingDays: dayStats.slice(-3).map(d => `${d.day} (${d.winRate.toFixed(1)}% WR)`)
+      }
+    }
+
+    // Calculate risk analysis
+    const stopLosses = closedTrades
+      .filter(trade => trade.stop_loss && trade.entry_price)
+      .map(trade => Math.abs(((trade.stop_loss! - trade.entry_price!) / trade.entry_price!) * 100))
+
+    aggregated.riskAnalysis = {
+      suggestedStopLossRange: {
+        min: Math.min(...stopLosses),
+        max: Math.max(...stopLosses)
+      },
+      riskManagementScore: calculateRiskScore(trades),
+      consistencyScore: calculateConsistencyScore(trades)
+    }
+
+    // Analyze trade setups
+    const setupMap = new Map<string, {
+      setup: string
+      trades: number
+      wins: number
+      totalReturn: number
+      conditions: Map<string, number>
+    }>()
+    closedTrades.forEach(trade => {
+      if (!trade.trade_setup) return
+      const setup = setupMap.get(trade.trade_setup) || {
+        setup: trade.trade_setup,
+        trades: 0,
+        wins: 0,
+        totalReturn: 0,
+        conditions: new Map<string, number>()
+      }
+
+      const pl = calculateTradeProfit(trade)
+      if (trade.market_conditions) {
+        setup.conditions.set(
+          trade.market_conditions,
+          (setup.conditions.get(trade.market_conditions) || 0) + (pl > 0 ? 1 : 0)
+        )
+      }
+
+      setupMap.set(trade.trade_setup, {
+        ...setup,
+        trades: setup.trades + 1,
+        wins: setup.wins + (pl > 0 ? 1 : 0),
+        totalReturn: setup.totalReturn + pl
+      })
+    })
+
+    aggregated.setupAnalysis = Array.from(setupMap.values())
+      .map(setup => ({
+        setup: setup.setup,
+        successRate: (setup.wins / setup.trades) * 100,
+        avgReturn: setup.totalReturn / setup.trades,
+        bestConditions: Array.from(setup.conditions.entries())
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 2)
+          .map(([condition]) => condition)
+      }))
+      .sort((a, b) => b.successRate - a.successRate)
 
     // Check if trades need analysis
     const tradesNeedingAnalysis = trades.filter(trade => 
@@ -268,6 +696,121 @@ function Learning() {
       )}
 
       <div className="grid grid-cols-1 gap-8">
+        {/* Overall Performance Stats */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-xl p-6 border border-white/20">
+            <h3 className="text-lg font-medium text-gray-900">Total Trades</h3>
+            <p className="mt-2 text-3xl font-bold text-indigo-600">
+              {analytics.overallStats.totalTrades}
+            </p>
+          </div>
+          <div className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-xl p-6 border border-white/20">
+            <h3 className="text-lg font-medium text-gray-900">Win Rate</h3>
+            <p className="mt-2 text-3xl font-bold text-indigo-600">
+              {analytics.overallStats.winRate.toFixed(1)}%
+            </p>
+          </div>
+          <div className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-xl p-6 border border-white/20">
+            <h3 className="text-lg font-medium text-gray-900">Total P/L</h3>
+            <p className={`mt-2 text-3xl font-bold ${analytics.overallStats.totalProfitLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              ${analytics.overallStats.totalProfitLoss.toFixed(2)}
+            </p>
+          </div>
+          <div className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-xl p-6 border border-white/20">
+            <h3 className="text-lg font-medium text-gray-900">Avg R:R Ratio</h3>
+            <p className="mt-2 text-3xl font-bold text-blue-600">
+              1:{analytics.overallStats.averageRR.toFixed(2)}
+            </p>
+          </div>
+        </div>
+
+        {/* Strategy Performance */}
+        <div className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-xl p-6 border border-white/20">
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">Strategy Performance</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {analytics.strategyAnalytics.map((strategy, index) => (
+              <div key={index} className="bg-gray-50 rounded-lg p-4">
+                <h3 className="font-medium text-gray-900">{strategy.name}</h3>
+                <div className="mt-2 space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500">Win Rate:</span>
+                    <span className="font-medium text-gray-900">{strategy.winRate.toFixed(1)}%</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500">Total Trades:</span>
+                    <span className="font-medium text-gray-900">{strategy.totalTrades}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500">P/L:</span>
+                    <span className={`font-medium ${strategy.profitLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      ${strategy.profitLoss.toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Proficiency Distribution */}
+        <div className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-xl p-6 border border-white/20">
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">Proficiency Analysis</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="h-[300px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={analytics.proficiencyMetrics}
+                    dataKey="count"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={80}
+                    fill="#6366F1"
+                    label={({ name, value }) => `${name} (${value})`}
+                  >
+                    {analytics.proficiencyMetrics.map((_entry, index) => (
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={`hsl(${index * (360 / analytics.proficiencyMetrics.length)}, 70%, 60%)`}
+                      />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    formatter={(value: number, name: string) => [
+                      `${value} trades`,
+                      name
+                    ]}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="space-y-4">
+              {analytics.proficiencyMetrics.map((metric, index) => (
+                <div key={index} className="bg-gray-50 rounded-lg p-4">
+                  <h3 className="font-medium text-gray-900">{metric.name}</h3>
+                  <div className="mt-2 space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">Win Rate:</span>
+                      <span className="font-medium text-gray-900">{metric.winRate.toFixed(1)}%</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">Total Trades:</span>
+                      <span className="font-medium text-gray-900">{metric.count}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">P/L:</span>
+                      <span className={`font-medium ${metric.profitLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        ${metric.profitLoss.toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
         {/* Key Lessons */}
         <div className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-xl p-6 border border-white/20">
           <h2 className="text-xl font-semibold text-gray-900 mb-4">Key Lessons</h2>
@@ -307,9 +850,256 @@ function Learning() {
             </div>
           </div>
         </div>
+
+        {/* Risk Management Insights */}
+        <div className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-xl p-6 border border-white/20">
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">Risk Management Insights</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <h3 className="text-lg font-medium text-gray-900 mb-3">Stop Loss Analysis</h3>
+              <div className="mt-2 space-y-4">
+                <div>
+                  <p className="text-sm text-gray-500">Recommended Stop Loss Range</p>
+                  <p className="text-2xl font-bold text-indigo-600">
+                    {analytics.riskAnalysis.suggestedStopLossRange.min.toFixed(1)}% - {analytics.riskAnalysis.suggestedStopLossRange.max.toFixed(1)}%
+                  </p>
+                  <p className="text-xs text-gray-500">from entry price</p>
+                </div>
+                <div className="mt-4">
+                  <p className="text-sm text-gray-500 mb-2">Stop Loss Usage</p>
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 bg-gray-200 rounded-full h-2">
+                      <div
+                        className="bg-indigo-600 h-2 rounded-full"
+                        style={{ width: `${analytics.riskAnalysis.riskManagementScore}%` }}
+                      ></div>
+                    </div>
+                    <span className="text-sm font-medium text-gray-700">
+                      {analytics.riskAnalysis.riskManagementScore.toFixed(0)}%
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">of trades have proper stop loss placement</p>
+                </div>
+                {/* New: Risk-Reward Analysis */}
+                <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                  <p className="text-sm font-medium text-gray-900 mb-2">Risk-Reward Analysis</p>
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-500">Average R:R Ratio</span>
+                      <span className="text-sm font-medium text-indigo-600">
+                        1:{analytics.overallStats.averageRR.toFixed(2)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-500">Trades Meeting 1:2 R:R</span>
+                      <span className="text-sm font-medium text-indigo-600">
+                        {(analytics.riskAnalysis.riskManagementScore * 0.4).toFixed(0)}%
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div>
+              <h3 className="text-lg font-medium text-gray-900 mb-3">Risk Management Score</h3>
+              <div className="space-y-4">
+                <div>
+                  <p className="text-sm text-gray-500">Overall Risk Score</p>
+                  <div className="flex items-center mt-1">
+                    <div className="flex-1 bg-gray-200 rounded-full h-4">
+                      <div
+                        className={`h-4 rounded-full ${
+                          analytics.riskAnalysis.riskManagementScore >= 80 ? 'bg-green-600' :
+                          analytics.riskAnalysis.riskManagementScore >= 60 ? 'bg-yellow-500' :
+                          'bg-red-500'
+                        }`}
+                        style={{ width: `${analytics.riskAnalysis.riskManagementScore}%` }}
+                      ></div>
+                    </div>
+                    <span className="ml-3 text-lg font-medium text-gray-900">
+                      {analytics.riskAnalysis.riskManagementScore.toFixed(0)}
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2">Based on stop loss usage and risk-reward ratios</p>
+                </div>
+                <div className="mt-6">
+                  <p className="text-sm text-gray-500">Trading Consistency</p>
+                  <div className="flex items-center mt-1">
+                    <div className="flex-1 bg-gray-200 rounded-full h-4">
+                      <div
+                        className={`h-4 rounded-full ${
+                          analytics.riskAnalysis.consistencyScore >= 80 ? 'bg-green-600' :
+                          analytics.riskAnalysis.consistencyScore >= 60 ? 'bg-yellow-500' :
+                          'bg-red-500'
+                        }`}
+                        style={{ width: `${analytics.riskAnalysis.consistencyScore}%` }}
+                      ></div>
+                    </div>
+                    <span className="ml-3 text-lg font-medium text-gray-900">
+                      {analytics.riskAnalysis.consistencyScore.toFixed(0)}
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2">Based on profit consistency and strategy adherence</p>
+                </div>
+                {/* New: Risk Score Breakdown */}
+                <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+                  <p className="text-sm font-medium text-gray-900 mb-3">Risk Score Breakdown</p>
+                  <div className="space-y-3">
+                    <div>
+                      <div className="flex justify-between text-sm mb-1">
+                        <span className="text-gray-500">Stop Loss Discipline</span>
+                        <span className="font-medium text-gray-900">30%</span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-1.5">
+                        <div className="bg-indigo-600 h-1.5 rounded-full" style={{ width: '30%' }}></div>
+                      </div>
+                    </div>
+                    <div>
+                      <div className="flex justify-between text-sm mb-1">
+                        <span className="text-gray-500">Position Sizing</span>
+                        <span className="font-medium text-gray-900">30%</span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-1.5">
+                        <div className="bg-indigo-600 h-1.5 rounded-full" style={{ width: '30%' }}></div>
+                      </div>
+                    </div>
+                    <div>
+                      <div className="flex justify-between text-sm mb-1">
+                        <span className="text-gray-500">Risk-Reward Ratio</span>
+                        <span className="font-medium text-gray-900">40%</span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-1.5">
+                        <div className="bg-indigo-600 h-1.5 rounded-full" style={{ width: '40%' }}></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                {/* New: Risk Management Tips */}
+                <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+                  <p className="text-sm font-medium text-gray-900 mb-2">Risk Management Tips</p>
+                  <ul className="space-y-2">
+                    <li className="flex items-start">
+                      <span className="text-indigo-500 mr-2">•</span>
+                      <span className="text-sm text-gray-700">Always set stop loss before entering trades</span>
+                    </li>
+                    <li className="flex items-start">
+                      <span className="text-indigo-500 mr-2">•</span>
+                      <span className="text-sm text-gray-700">Aim for minimum 1:2 risk-reward ratio</span>
+                    </li>
+                    <li className="flex items-start">
+                      <span className="text-indigo-500 mr-2">•</span>
+                      <span className="text-sm text-gray-700">Maintain consistent position sizing</span>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Setup Analysis */}
+        <div className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-xl p-6 border border-white/20">
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">Setup Analysis</h2>
+          <div className="grid grid-cols-1 gap-4">
+            {analytics.setupAnalysis.map((setup, index) => (
+              <div key={index} className="bg-gray-50 rounded-lg p-4">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h3 className="font-medium text-gray-900">{setup.setup}</h3>
+                    <p className="text-sm text-gray-500 mt-1">
+                      Best in: {setup.bestConditions.join(', ')}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-lg font-medium text-indigo-600">{setup.successRate.toFixed(1)}%</p>
+                    <p className="text-sm text-gray-500">success rate</p>
+                  </div>
+                </div>
+                <div className="mt-2">
+                  <p className="text-sm text-gray-500">Average Return</p>
+                  <p className={`text-sm font-medium ${setup.avgReturn >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {setup.avgReturn >= 0 ? '+' : ''}{setup.avgReturn.toFixed(2)}%
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   )
+}
+
+// Helper functions
+function calculateTradeProfit(trade: Trade): number {
+  const exitPrice = trade.exit_price || (trade.exits?.[0]?.exit_price ?? 0)
+  return trade.type === 'long'
+    ? (exitPrice - (trade.entry_price || 0)) * trade.quantity
+    : ((trade.entry_price || 0) - exitPrice) * trade.quantity
+}
+
+function average(numbers: number[]): number {
+  return numbers.length > 0
+    ? numbers.reduce((sum, num) => sum + num, 0) / numbers.length
+    : 0
+}
+
+function calculateRiskScore(trades: Trade[]): number {
+  let score = 100
+  const closedTrades = trades.filter(t => t.status === 'closed')
+  
+  // Deduct points for missing stop losses
+  const tradesWithoutStopLoss = closedTrades.filter(t => !t.stop_loss).length
+  score -= (tradesWithoutStopLoss / closedTrades.length) * 30
+
+  // Deduct points for position sizes > 5% of capital
+  const largePositions = closedTrades.filter(t => 
+    (t.quantity * (t.entry_price || 0)) / 10000 * 100 > 5
+  ).length
+  score -= (largePositions / closedTrades.length) * 30
+
+  // Deduct points for risk:reward < 1:2
+  const poorRR = closedTrades.filter(t => {
+    if (!t.stop_loss || !t.take_profit || !t.entry_price) return true
+    const risk = Math.abs(t.entry_price - t.stop_loss)
+    const reward = Math.abs(t.take_profit - t.entry_price)
+    return reward / risk < 2
+  }).length
+  score -= (poorRR / closedTrades.length) * 40
+
+  return Math.max(0, Math.min(100, score))
+}
+
+function calculateConsistencyScore(trades: Trade[]): number {
+  let score = 100
+  const closedTrades = trades.filter(t => t.status === 'closed')
+  
+  // Calculate profit consistency
+  const profits = closedTrades.map(calculateTradeProfit)
+  const avgProfit = average(profits)
+  const stdDev = Math.sqrt(
+    average(profits.map(p => Math.pow(p - avgProfit, 2)))
+  )
+  const coefficientOfVariation = Math.abs(stdDev / avgProfit)
+  score -= Math.min(50, coefficientOfVariation * 25)
+
+  // Check strategy consistency
+  const strategyChanges = closedTrades.reduce((changes, trade, i) => {
+    if (i === 0) return 0
+    return changes + (trade.strategy !== closedTrades[i-1].strategy ? 1 : 0)
+  }, 0)
+  score -= (strategyChanges / closedTrades.length) * 25
+
+  // Check position size consistency
+  const positionSizes = closedTrades.map(t => 
+    (t.quantity * (t.entry_price || 0)) / 10000 * 100
+  )
+  const avgSize = average(positionSizes)
+  const sizeVariance = average(positionSizes.map(s => Math.pow(s - avgSize, 2)))
+  const sizeStdDev = Math.sqrt(sizeVariance)
+  score -= Math.min(25, (sizeStdDev / avgSize) * 25)
+
+  return Math.max(0, Math.min(100, score))
 }
 
 export default Learning 
