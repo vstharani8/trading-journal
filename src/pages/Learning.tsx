@@ -43,38 +43,11 @@ interface AggregatedAnalytics {
     profitLoss: number
     profitFactor: number
   }[]
-  proficiencyMetrics: {
-    name: string
-    count: number
-    winRate: number
-    profitLoss: number
-  }[]
   overallStats: {
     totalTrades: number
     winRate: number
     totalProfitLoss: number
     averageRR: number
-  }
-  // New AI analysis fields
-  patternAnalysis: {
-    marketConditions: {
-      condition: 'bullish' | 'bearish' | 'neutral'
-      tradeCount: number
-      winRate: number
-      avgReturn: number
-    }[]
-    emotionalStates: {
-      state: 'confident' | 'uncertain' | 'neutral'
-      tradeCount: number
-      winRate: number
-      avgReturn: number
-    }[]
-    timeAnalysis: {
-      bestTradingHours: string[]
-      bestTradingDays: string[]
-      worstTradingHours: string[]
-      worstTradingDays: string[]
-    }
   }
   riskAnalysis: {
     suggestedStopLossRange: {
@@ -84,18 +57,25 @@ interface AggregatedAnalytics {
     riskManagementScore: number
     consistencyScore: number
   }
-  behavioralPatterns: {
-    pattern: string
-    occurrence: number
-    impact: number
-    recommendation: string
-  }[]
-  setupAnalysis: {
-    setup: string
-    successRate: number
-    avgReturn: number
-    bestConditions: string[]
-  }[]
+  patternAnalysis: PatternAnalysis
+}
+
+interface PatternAnalysis {
+  tradingPatterns: Array<{
+    pattern: string;
+    description: string;
+    frequency: number;
+    successRate: number;
+    avgReturn: number;
+    recommendation: string;
+  }>;
+}
+
+interface PsychologyInsight {
+  insight: string
+  impact: 'positive' | 'negative'
+  frequency: number
+  suggestion: string
 }
 
 function Learning() {
@@ -114,22 +94,11 @@ function Learning() {
     lastAnalyzedAt: undefined,
     monthlyPerformance: [],
     strategyAnalytics: [],
-    proficiencyMetrics: [],
     overallStats: {
       totalTrades: 0,
       winRate: 0,
       totalProfitLoss: 0,
       averageRR: 0
-    },
-    patternAnalysis: {
-      marketConditions: [],
-      emotionalStates: [],
-      timeAnalysis: {
-        bestTradingHours: [],
-        bestTradingDays: [],
-        worstTradingHours: [],
-        worstTradingDays: []
-      }
     },
     riskAnalysis: {
       suggestedStopLossRange: {
@@ -139,8 +108,9 @@ function Learning() {
       riskManagementScore: 0,
       consistencyScore: 0
     },
-    behavioralPatterns: [],
-    setupAnalysis: []
+    patternAnalysis: {
+      tradingPatterns: [],
+    }
   })
   const [analyzing, setAnalyzing] = useState(false)
 
@@ -222,33 +192,23 @@ function Learning() {
       lastAnalyzedAt: undefined,
       monthlyPerformance: [],
       strategyAnalytics: [],
-      proficiencyMetrics: [],
       overallStats: {
         totalTrades: 0,
         winRate: 0,
         totalProfitLoss: 0,
         averageRR: 0
       },
-      patternAnalysis: {
-        marketConditions: [],
-        emotionalStates: [],
-        timeAnalysis: {
-          bestTradingHours: [],
-          bestTradingDays: [],
-          worstTradingHours: [],
-          worstTradingDays: []
-        }
-      },
       riskAnalysis: {
         suggestedStopLossRange: {
           min: 0,
           max: 0
         },
-        riskManagementScore: 0,
-        consistencyScore: 0
+        riskManagementScore: calculateRiskScore(trades),
+        consistencyScore: calculateConsistencyScore(trades)
       },
-      behavioralPatterns: [],
-      setupAnalysis: []
+      patternAnalysis: {
+        tradingPatterns: [],
+      }
     }
 
     // Calculate overall stats
@@ -314,219 +274,6 @@ function Learning() {
         profitFactor: strategy.profitLoss > 0 ? strategy.profitLoss : 0
       }))
       .sort((a, b) => b.profitLoss - a.profitLoss)
-
-    // Calculate proficiency metrics
-    const proficiencyMap = new Map<string, any>()
-    closedTrades.forEach(trade => {
-      if (!trade.proficiency) return
-      const proficiency = proficiencyMap.get(trade.proficiency) || {
-        name: trade.proficiency,
-        count: 0,
-        wins: 0,
-        profitLoss: 0
-      }
-      const exitPrice = trade.exit_price || (trade.exits?.[0]?.exit_price ?? 0)
-      const pl = trade.type === 'long'
-        ? (exitPrice - (trade.entry_price || 0)) * trade.quantity
-        : ((trade.entry_price || 0) - exitPrice) * trade.quantity
-      
-      proficiencyMap.set(trade.proficiency, {
-        ...proficiency,
-        count: proficiency.count + 1,
-        wins: proficiency.wins + (pl > 0 ? 1 : 0),
-        profitLoss: proficiency.profitLoss + pl
-      })
-    })
-
-    aggregated.proficiencyMetrics = Array.from(proficiencyMap.values())
-      .map(metric => ({
-        ...metric,
-        winRate: (metric.wins / metric.count) * 100
-      }))
-      .sort((a, b) => b.count - a.count)
-
-    // Calculate pattern analysis
-    const marketConditionsMap = new Map<string, any>()
-    const emotionalStatesMap = new Map<string, any>()
-    const tradingHours = new Map<number, any>()
-    const tradingDays = new Map<string, any>()
-
-    closedTrades.forEach(trade => {
-      // Market conditions analysis
-      if (trade.market_conditions) {
-        const condition = marketConditionsMap.get(trade.market_conditions) || {
-          condition: trade.market_conditions,
-          tradeCount: 0,
-          wins: 0,
-          totalReturn: 0
-        }
-        const pl = calculateTradeProfit(trade)
-        marketConditionsMap.set(trade.market_conditions, {
-          ...condition,
-          tradeCount: condition.tradeCount + 1,
-          wins: condition.wins + (pl > 0 ? 1 : 0),
-          totalReturn: condition.totalReturn + pl
-        })
-      }
-
-      // Emotional state analysis
-      if (trade.emotional_state) {
-        const state = emotionalStatesMap.get(trade.emotional_state) || {
-          state: trade.emotional_state,
-          tradeCount: 0,
-          wins: 0,
-          totalReturn: 0
-        }
-        const pl = calculateTradeProfit(trade)
-        emotionalStatesMap.set(trade.emotional_state, {
-          ...state,
-          tradeCount: state.tradeCount + 1,
-          wins: state.wins + (pl > 0 ? 1 : 0),
-          totalReturn: state.totalReturn + pl
-        })
-      }
-
-      // Time analysis
-      const entryDate = new Date(trade.entry_date)
-      const hour = entryDate.getHours()
-      const day = entryDate.toLocaleDateString('en-US', { weekday: 'long' })
-      
-      const hourStat = tradingHours.get(hour) || {
-        hour,
-        tradeCount: 0,
-        wins: 0,
-        totalReturn: 0
-      }
-      const dayStat = tradingDays.get(day) || {
-        day,
-        tradeCount: 0,
-        wins: 0,
-        totalReturn: 0
-      }
-
-      const pl = calculateTradeProfit(trade)
-      tradingHours.set(hour, {
-        ...hourStat,
-        tradeCount: hourStat.tradeCount + 1,
-        wins: hourStat.wins + (pl > 0 ? 1 : 0),
-        totalReturn: hourStat.totalReturn + pl
-      })
-
-      tradingDays.set(day, {
-        ...dayStat,
-        tradeCount: dayStat.tradeCount + 1,
-        wins: dayStat.wins + (pl > 0 ? 1 : 0),
-        totalReturn: dayStat.totalReturn + pl
-      })
-    })
-
-    // Process market conditions
-    const marketConditions = Array.from(marketConditionsMap.values())
-      .map(condition => ({
-        condition: condition.condition,
-        tradeCount: condition.tradeCount,
-        winRate: (condition.wins / condition.tradeCount) * 100,
-        avgReturn: condition.totalReturn / condition.tradeCount
-      }))
-      .sort((a, b) => b.winRate - a.winRate)
-
-    // Process emotional states
-    const emotionalStates = Array.from(emotionalStatesMap.values())
-      .map(state => ({
-        state: state.state,
-        tradeCount: state.tradeCount,
-        winRate: (state.wins / state.tradeCount) * 100,
-        avgReturn: state.totalReturn / state.tradeCount
-      }))
-      .sort((a, b) => b.winRate - a.winRate)
-
-    // Process time analysis
-    const hourStats = Array.from(tradingHours.values())
-      .map(stat => ({
-        hour: stat.hour,
-        winRate: (stat.wins / stat.tradeCount) * 100,
-        avgReturn: stat.totalReturn / stat.tradeCount
-      }))
-      .sort((a, b) => b.winRate - a.winRate)
-
-    const dayStats = Array.from(tradingDays.values())
-      .map(stat => ({
-        day: stat.day,
-        winRate: (stat.wins / stat.tradeCount) * 100,
-        avgReturn: stat.totalReturn / stat.tradeCount
-      }))
-      .sort((a, b) => b.winRate - a.winRate)
-
-    aggregated.patternAnalysis = {
-      marketConditions,
-      emotionalStates,
-      timeAnalysis: {
-        bestTradingHours: hourStats.slice(0, 3).map(h => `${h.hour}:00 (${h.winRate.toFixed(1)}% WR)`),
-        worstTradingHours: hourStats.slice(-3).map(h => `${h.hour}:00 (${h.winRate.toFixed(1)}% WR)`),
-        bestTradingDays: dayStats.slice(0, 3).map(d => `${d.day} (${d.winRate.toFixed(1)}% WR)`),
-        worstTradingDays: dayStats.slice(-3).map(d => `${d.day} (${d.winRate.toFixed(1)}% WR)`)
-      }
-    }
-
-    // Calculate risk analysis
-    const stopLosses = closedTrades
-      .filter(trade => trade.stop_loss && trade.entry_price)
-      .map(trade => Math.abs(((trade.stop_loss! - trade.entry_price!) / trade.entry_price!) * 100))
-
-    aggregated.riskAnalysis = {
-      suggestedStopLossRange: {
-        min: Math.min(...stopLosses),
-        max: Math.max(...stopLosses)
-      },
-      riskManagementScore: calculateRiskScore(trades),
-      consistencyScore: calculateConsistencyScore(trades)
-    }
-
-    // Analyze trade setups
-    const setupMap = new Map<string, {
-      setup: string
-      trades: number
-      wins: number
-      totalReturn: number
-      conditions: Map<string, number>
-    }>()
-    closedTrades.forEach(trade => {
-      if (!trade.trade_setup) return
-      const setup = setupMap.get(trade.trade_setup) || {
-        setup: trade.trade_setup,
-        trades: 0,
-        wins: 0,
-        totalReturn: 0,
-        conditions: new Map<string, number>()
-      }
-
-      const pl = calculateTradeProfit(trade)
-      if (trade.market_conditions) {
-        setup.conditions.set(
-          trade.market_conditions,
-          (setup.conditions.get(trade.market_conditions) || 0) + (pl > 0 ? 1 : 0)
-        )
-      }
-
-      setupMap.set(trade.trade_setup, {
-        ...setup,
-        trades: setup.trades + 1,
-        wins: setup.wins + (pl > 0 ? 1 : 0),
-        totalReturn: setup.totalReturn + pl
-      })
-    })
-
-    aggregated.setupAnalysis = Array.from(setupMap.values())
-      .map(setup => ({
-        setup: setup.setup,
-        successRate: (setup.wins / setup.trades) * 100,
-        avgReturn: setup.totalReturn / setup.trades,
-        bestConditions: Array.from(setup.conditions.entries())
-          .sort((a, b) => b[1] - a[1])
-          .slice(0, 2)
-          .map(([condition]) => condition)
-      }))
-      .sort((a, b) => b.successRate - a.successRate)
 
     // Check if trades need analysis
     const tradesNeedingAnalysis = trades.filter(trade => 
@@ -612,6 +359,110 @@ function Learning() {
           setError('Failed to refine analysis')
         } finally {
           setAnalyzing(false)
+        }
+      }
+    }
+
+    // Calculate stop loss range
+    const stopLosses = closedTrades
+      .filter(trade => trade.stop_loss && trade.entry_price)
+      .map(trade => Math.abs(((trade.stop_loss! - trade.entry_price!) / trade.entry_price!) * 100))
+
+    if (stopLosses.length > 0) {
+      aggregated.riskAnalysis.suggestedStopLossRange = {
+        min: Math.min(...stopLosses),
+        max: Math.max(...stopLosses)
+      }
+    }
+
+    // AI-powered pattern analysis
+    if (trades.length > 0) {
+      try {
+        const prompt = `Analyze the following trading data and provide a structured analysis in JSON format with exactly these fields:
+{
+  "patterns": [
+    {
+      "pattern": "string (name of the pattern)",
+      "description": "string (brief description)",
+      "frequency": "number (how many times it occurred)",
+      "successRate": "number (percentage of successful trades)",
+      "avgReturn": "number (average return percentage)",
+      "recommendation": "string (actionable recommendation)"
+    }
+  ]
+}
+
+Trading data to analyze:
+${JSON.stringify(trades.map(t => ({
+  type: t.type,
+  entry_price: t.entry_price,
+  exit_price: t.exit_price || t.exits?.[0]?.exit_price,
+  stop_loss: t.stop_loss,
+  take_profit: t.take_profit,
+  strategy: t.strategy,
+  notes: t.notes,
+  emotional_state: t.emotional_state,
+  market_conditions: t.market_conditions,
+  entry_date: new Date(t.entry_date).toISOString(),
+  exit_date: t.exit_date ? new Date(t.exit_date).toISOString() : null,
+  profit_loss: calculateTradeProfit(t)
+})), null, 2)}
+
+Analyze the data for common trading patterns and their success rates.
+Ensure all numeric values are actual numbers, not strings. Format the response exactly according to the schema above.`
+
+        const completion = await openai.chat.completions.create({
+          messages: [
+            {
+              role: 'system',
+              content: `You are an expert trading analyst AI. Analyze trading patterns and provide actionable insights.
+              Your response must be valid JSON matching the exact schema provided.
+              Ensure all numeric values are numbers, not strings.
+              Provide at least 3 patterns.
+              Base all analysis on actual patterns in the trading data provided.`
+            },
+            { role: 'user', content: prompt }
+          ],
+          model: 'gpt-3.5-turbo',
+          temperature: 0.7,
+          response_format: { type: "json_object" }
+        })
+
+        try {
+          const analysis = JSON.parse(completion.choices[0]?.message?.content || '{}')
+          
+          // Validate and sanitize the analysis data
+          const sanitizedAnalysis = {
+            tradingPatterns: (analysis.patterns || []).map((pattern: any) => ({
+              pattern: pattern.pattern || 'Unknown Pattern',
+              description: pattern.description || 'No description available',
+              frequency: pattern.frequency || 0,
+              successRate: pattern.successRate || 0,
+              avgReturn: pattern.avgReturn || 0,
+              recommendation: pattern.recommendation || 'No recommendation available'
+            }))
+          }
+          
+          aggregated.patternAnalysis = sanitizedAnalysis
+        } catch (parseError) {
+          console.error('Error parsing AI analysis:', parseError)
+          // Provide fallback data if parsing fails
+          aggregated.patternAnalysis = {
+            tradingPatterns: [{
+              pattern: 'Basic Trading Pattern',
+              description: 'Common trading behavior observed',
+              frequency: trades.length,
+              successRate: (profitableTrades.length / closedTrades.length) * 100,
+              avgReturn: aggregated.overallStats.totalProfitLoss / trades.length,
+              recommendation: 'Continue monitoring and analyzing trading patterns'
+            }],
+          }
+        }
+      } catch (err) {
+        console.error('Error generating AI pattern analysis:', err)
+        // Set default values if AI analysis fails
+        aggregated.patternAnalysis = {
+          tradingPatterns: [],
         }
       }
     }
@@ -752,65 +603,6 @@ function Learning() {
           </div>
         </div>
 
-        {/* Proficiency Distribution */}
-        <div className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-xl p-6 border border-white/20">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Proficiency Analysis</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={analytics.proficiencyMetrics}
-                    dataKey="count"
-                    nameKey="name"
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={80}
-                    fill="#6366F1"
-                    label={({ name, value }) => `${name} (${value})`}
-                  >
-                    {analytics.proficiencyMetrics.map((_entry, index) => (
-                      <Cell
-                        key={`cell-${index}`}
-                        fill={`hsl(${index * (360 / analytics.proficiencyMetrics.length)}, 70%, 60%)`}
-                      />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    formatter={(value: number, name: string) => [
-                      `${value} trades`,
-                      name
-                    ]}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="space-y-4">
-              {analytics.proficiencyMetrics.map((metric, index) => (
-                <div key={index} className="bg-gray-50 rounded-lg p-4">
-                  <h3 className="font-medium text-gray-900">{metric.name}</h3>
-                  <div className="mt-2 space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-500">Win Rate:</span>
-                      <span className="font-medium text-gray-900">{metric.winRate.toFixed(1)}%</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-500">Total Trades:</span>
-                      <span className="font-medium text-gray-900">{metric.count}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-500">P/L:</span>
-                      <span className={`font-medium ${metric.profitLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        ${metric.profitLoss.toFixed(2)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
         {/* Key Lessons */}
         <div className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-xl p-6 border border-white/20">
           <h2 className="text-xl font-semibold text-gray-900 mb-4">Key Lessons</h2>
@@ -861,7 +653,9 @@ function Learning() {
                 <div>
                   <p className="text-sm text-gray-500">Recommended Stop Loss Range</p>
                   <p className="text-2xl font-bold text-indigo-600">
-                    {analytics.riskAnalysis.suggestedStopLossRange.min.toFixed(1)}% - {analytics.riskAnalysis.suggestedStopLossRange.max.toFixed(1)}%
+                    {analytics.riskAnalysis.suggestedStopLossRange.min > 0 
+                      ? `${analytics.riskAnalysis.suggestedStopLossRange.min.toFixed(1)}% - ${analytics.riskAnalysis.suggestedStopLossRange.max.toFixed(1)}%`
+                      : 'No data available'}
                   </p>
                   <p className="text-xs text-gray-500">from entry price</p>
                 </div>
@@ -917,7 +711,7 @@ function Learning() {
                       ></div>
                     </div>
                     <span className="ml-3 text-lg font-medium text-gray-900">
-                      {analytics.riskAnalysis.riskManagementScore.toFixed(0)}
+                      {analytics.riskAnalysis.riskManagementScore.toFixed(0)}%
                     </span>
                   </div>
                   <p className="text-xs text-gray-500 mt-2">Based on stop loss usage and risk-reward ratios</p>
@@ -936,7 +730,7 @@ function Learning() {
                       ></div>
                     </div>
                     <span className="ml-3 text-lg font-medium text-gray-900">
-                      {analytics.riskAnalysis.consistencyScore.toFixed(0)}
+                      {analytics.riskAnalysis.consistencyScore.toFixed(0)}%
                     </span>
                   </div>
                   <p className="text-xs text-gray-500 mt-2">Based on profit consistency and strategy adherence</p>
@@ -997,32 +791,39 @@ function Learning() {
           </div>
         </div>
 
-        {/* Setup Analysis */}
+        {/* Trade Pattern Recognition */}
         <div className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-xl p-6 border border-white/20">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Setup Analysis</h2>
-          <div className="grid grid-cols-1 gap-4">
-            {analytics.setupAnalysis.map((setup, index) => (
-              <div key={index} className="bg-gray-50 rounded-lg p-4">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h3 className="font-medium text-gray-900">{setup.setup}</h3>
-                    <p className="text-sm text-gray-500 mt-1">
-                      Best in: {setup.bestConditions.join(', ')}
-                    </p>
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">AI Trade Pattern Analysis</h2>
+          
+          {/* Trading Patterns */}
+          <div className="grid grid-cols-1 gap-6">
+            <div>
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Identified Patterns</h3>
+              <div className="space-y-4">
+                {analytics.patternAnalysis.tradingPatterns.map((pattern, index) => (
+                  <div key={index} className="bg-gray-50 rounded-lg p-4">
+                    <div className="flex justify-between items-start mb-2">
+                      <h4 className="font-medium text-gray-900">{pattern.pattern}</h4>
+                      <span className={`px-2 py-1 rounded text-sm font-medium ${
+                        pattern.successRate >= 60 ? 'bg-green-100 text-green-800' :
+                        pattern.successRate >= 40 ? 'bg-yellow-100 text-yellow-800' :
+                        'bg-red-100 text-red-800'
+                      }`}>
+                        {pattern.successRate.toFixed(1)}% Success
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-600 mb-2">{pattern.description}</p>
+                    <div className="flex justify-between text-sm text-gray-500">
+                      <span>Frequency: {pattern.frequency}x</span>
+                      <span>Avg Return: {pattern.avgReturn > 0 ? '+' : ''}{pattern.avgReturn.toFixed(2)}%</span>
+                    </div>
+                    <div className="mt-2 pt-2 border-t border-gray-200">
+                      <p className="text-sm font-medium text-indigo-600">{pattern.recommendation}</p>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-lg font-medium text-indigo-600">{setup.successRate.toFixed(1)}%</p>
-                    <p className="text-sm text-gray-500">success rate</p>
-                  </div>
-                </div>
-                <div className="mt-2">
-                  <p className="text-sm text-gray-500">Average Return</p>
-                  <p className={`text-sm font-medium ${setup.avgReturn >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    {setup.avgReturn >= 0 ? '+' : ''}{setup.avgReturn.toFixed(2)}%
-                  </p>
-                </div>
+                ))}
               </div>
-            ))}
+            </div>
           </div>
         </div>
       </div>
