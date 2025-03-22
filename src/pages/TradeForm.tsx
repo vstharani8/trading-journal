@@ -1017,7 +1017,7 @@ function TradeForm() {
                       entry_price: formData.entry_price || 0,
                       created_at: new Date().toISOString(),
                       updated_at: new Date().toISOString(),
-                      exits: []
+                      exits: tradeData?.exits || []
                     });
                     const updatedFormData = {
                       ...formData,
