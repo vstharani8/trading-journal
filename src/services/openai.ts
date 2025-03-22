@@ -37,14 +37,33 @@ const ANALYSIS_SECTIONS = {
 
 export async function generateTradeFeedback(trade: Trade): Promise<TradeFeedback> {
   // Calculate key metrics
-  const lastExit = trade.exits[trade.exits.length - 1];
-  const exitPrice = lastExit?.exit_price || trade.exit_price || 0;
-  const profitLoss = trade.type === 'long'
-    ? (exitPrice - (trade.entry_price || 0)) * trade.quantity
-    : ((trade.entry_price || 0) - exitPrice) * trade.quantity;
+  let profitLoss = 0;
+  let profitLossPercentage = 0;
+  
+  if (trade.exits && trade.exits.length > 0) {
+    // Calculate P/L for trades with multiple exits
+    profitLoss = trade.exits.reduce((total, exit) => {
+      const exitPL = trade.type === 'long'
+        ? (exit.exit_price - (trade.entry_price || 0)) * exit.quantity
+        : ((trade.entry_price || 0) - exit.exit_price) * exit.quantity;
+      return total + exitPL;
+    }, 0);
+    
+    // Calculate weighted average exit price for percentage calculation
+    const totalExitValue = trade.exits.reduce((total, exit) => total + (exit.exit_price * exit.quantity), 0);
+    const totalQuantity = trade.exits.reduce((total, exit) => total + exit.quantity, 0);
+    const avgExitPrice = totalExitValue / totalQuantity;
+    profitLossPercentage = ((avgExitPrice - (trade.entry_price || 0)) / (trade.entry_price || 1)) * 100;
+  } else {
+    // For single exit trades
+    const exitPrice = trade.exit_price || 0;
+    profitLoss = trade.type === 'long'
+      ? (exitPrice - (trade.entry_price || 0)) * trade.quantity
+      : ((trade.entry_price || 0) - exitPrice) * trade.quantity;
+    profitLossPercentage = ((exitPrice - (trade.entry_price || 0)) / (trade.entry_price || 1)) * 100;
+  }
   
   const isProfitable = profitLoss > 0;
-  const profitLossPercentage = ((exitPrice - (trade.entry_price || 0)) / (trade.entry_price || 1)) * 100;
   
   // Calculate risk metrics
   const riskPerShare = trade.stop_loss 
@@ -56,7 +75,7 @@ export async function generateTradeFeedback(trade: Trade): Promise<TradeFeedback
   const riskRewardRatio = riskPerShare > 0 ? potentialRewardPerShare / riskPerShare : 0;
 
   // Calculate exit execution metrics
-  const exitMetrics = trade.exits.map(exit => ({
+  const exitMetrics = trade.exits?.map(exit => ({
     date: exit.exit_date,
     price: exit.exit_price,
     quantity: exit.quantity,
@@ -65,7 +84,7 @@ export async function generateTradeFeedback(trade: Trade): Promise<TradeFeedback
       : ((trade.entry_price || 0) - exit.exit_price) * exit.quantity,
     notes: exit.notes,
     trigger: exit.exit_trigger
-  }));
+  })) || [];
 
   // Calculate average exit metrics
   const totalExitQuantity = exitMetrics.reduce((sum, exit) => sum + exit.quantity, 0);
@@ -88,7 +107,7 @@ export async function generateTradeFeedback(trade: Trade): Promise<TradeFeedback
     
     // Exit details
     exit_date: trade.exit_date,
-    exit_price: exitPrice,
+    exit_price: trade.exit_price || 0,
     weighted_avg_exit_price: weightedAvgExitPrice,
     exits: exitMetrics,
     exit_trigger: trade.exit_trigger,
