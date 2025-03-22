@@ -1,19 +1,7 @@
 import { useState, useEffect } from 'react'
 import { db } from '../services/supabase'
-import { Trade, UserSettings } from '../services/supabase'
+import { Trade } from '../services/supabase'
 import OpenAI from 'openai'
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell
-} from 'recharts'
 
 const openai = new OpenAI({
   apiKey: import.meta.env.VITE_OPENAI_API_KEY,
@@ -71,18 +59,10 @@ interface PatternAnalysis {
   }>;
 }
 
-interface PsychologyInsight {
-  insight: string
-  impact: 'positive' | 'negative'
-  frequency: number
-  suggestion: string
-}
-
 function Learning() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [trades, setTrades] = useState<Trade[]>([])
-  const [userSettings, setUserSettings] = useState<UserSettings | null>(null)
   const [analytics, setAnalytics] = useState<AggregatedAnalytics>({
     commonMistakes: {},
     successfulStrategies: {},
@@ -115,21 +95,8 @@ function Learning() {
   const [analyzing, setAnalyzing] = useState(false)
 
   useEffect(() => {
-    loadUserSettings()
     loadTrades()
   }, [])
-
-  const loadUserSettings = async () => {
-    try {
-      const { data: { session } } = await db.supabase.auth.getSession()
-      if (session?.user) {
-        const settings = await db.getUserSettings(session.user.id)
-        setUserSettings(settings)
-      }
-    } catch (err) {
-      console.error('Error loading user settings:', err)
-    }
-  }
 
   const saveAnalysis = async (tradeIds: string[], refinedAnalytics: AggregatedAnalytics) => {
     try {
